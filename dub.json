@@ -1,0 +1,13 @@
+{
+	"name": "espuki-ide",
+	"authors": [
+		"Christian Durán C"
+	],
+	"dependencies": {
+		"gtk-d": "~>3.3.1",
+        "pegged": "~>0.3.3"
+	},
+	"description": "IDE for the Espuki programming language",
+	"copyright": "Copyright © 2016, Christian D",
+	"license": "BSD 2-clause"
+}
