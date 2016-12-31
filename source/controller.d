@@ -10,6 +10,7 @@ static struct Controller {
                 # still more text. It should not recognise.
                 MainC        <  RealCommand (Unrecognised / Empty)
                 RealCommand  <  Arrow        / #Node num.
+                                DeleteNode   /
                                 Literal      /
                                 GoToParent   /
                                 NewRootNode  /
@@ -25,6 +26,7 @@ static struct Controller {
                 GoToParent   <  ".." (Literal / Expression / Empty)
                 NewRootNode  <  "]" (Literal / Expression / Empty)
                 NewChild     <  "." Expression
+                DeleteNode   <  Number "<"
                 Expression   <  Name
                 Name         <~ [a-zA-Z][a-zA-Z0-9]*
                 Unrecognised <~ .+
@@ -48,8 +50,8 @@ static struct Controller {
         switch ( match.name ) {
             import std.conv : text, to;
             case `Command.Arrow`:
-                auto nodeNum = match.matches[0].to!uint;
-                Controller.currentNode = nodeNum;
+                auto nodeNumber = match.matches[0].to!uint;
+                Controller.currentNode = nodeNumber;
                 break;
             case `Command.Literal`:
                 if (Controller.nodes.length == 0) { // New node.
@@ -83,6 +85,10 @@ static struct Controller {
             case `Command.NewChild`:
                 Controller.addNode (currentNode, match.matches[1] /*Value*/);
                 break;
+            case `Command.DeleteNode`:
+                import std.conv : to;
+                Controller.deleteNode (match.matches [0].to!uint);
+                break;
             case `Command.Unrecognised`:
                 throw new Exception (`Unrecognised command: ` ~ command);
             case `Command.Empty` : // Do nothing.
@@ -108,6 +114,34 @@ static struct Controller {
         currentNode = lastCount;
         lastCount ++;
     }
+    static void deleteNode (uint nodeNumber) {
+        auto toDelete = nodeNumber in nodes;
+        import std.conv : to;
+        import std.exception : enforce;
+        enforce (toDelete, `Node ` ~ nodeNumber.to!string ~ ` doesn't exist.`);
+        // Should delete from rootNodes
+        import std.algorithm.searching : countUntil;
+        auto nodeToDel = rootNodes.countUntil!((ref a) => &a == *toDelete);
+        if (nodeToDel != -1) { // Is in root nodes.
+            import std.algorithm.mutation : remove;
+            rootNodes = rootNodes.remove (nodeToDel);
+        }
+        import std.stdio;
+        writeln (`Current node is `, currentNode);
+        // Should change currentNode if it's the deleted node.
+        if (*toDelete == currentNode) { // Current node is changed.
+            if (nodes.length > 1) {
+                currentNode = (*toDelete).nodeNumber == nodes.keys [0] ? 
+                /**/ nodes.keys [1] : nodes.keys [0];
+            } else { // No nodes after this one.
+                currentNode = INVALID_NODE;
+            }
+        }
+        nodes.remove (nodeNumber);
+        // Node should clean itself and its children.
+        (*toDelete).cleanUp;
+
+    }
     private static Node   [] rootNodes = [];
     private static Node * [uint] nodes; /// All nodes, identified by a number.
     private static uint lastCount = 0;  /// Used for assigning ids to new nodes.
@@ -117,18 +151,35 @@ static struct Controller {
     @property private static Node * currentNode () {
         auto toRet = m_currentNode in nodes;
         import std.exception : enforce;
-        enforce (toRet !is null, `Tried accessing a non-existent node.`);
+        import std.conv : to;
+        enforce (toRet, `Tried accessing a non-existent node: `
+        /**/ ~ m_currentNode.to!string);
         return * toRet;
     }
     /**************************************************************************
      * Set the currently selected node by index in nodes.
      **************************************************************************/
     @property private static currentNode (uint newVal) {
-        assert ((newVal in nodes) !is null
+        import std.stdio : writeln;
+        import std.conv : text, to;
+        writeln (text(`Changing currentNode from  `
+            /**/ , m_currentNode == INVALID_NODE ? 
+            /**/ `INVALID` : currentNode.nodeNumber.to!string, ` `, newVal));
+        if (newVal == INVALID_NODE) { // Doesn't check existence in nodes.
+            /+
+            assert (!nodes.length
+            /**/ , `There should be a current node if nodes exist.`);
+            +/
+            m_currentNode = INVALID_NODE;
+            return;
+        }
+        import std.exception : enforce;
+        enforce (newVal in nodes
         /**/ , `Tried assigning currentNode to a non-existent one`);
         if (m_currentNode != INVALID_NODE) {
             currentNode.guiNode.isCurrentlySelected = false;
         }
+        // Current node has been set.
         m_currentNode = newVal;
         currentNode.guiNode.isCurrentlySelected = true;
     }
@@ -150,6 +201,22 @@ struct Node {
     @property GUINode * guiNode () { 
         assert (m_guiNode, `No guiNode, make sure to call Node.start`);
         return m_guiNode;
+    }
+    // A 'destructor'. Should be called before deleting this node.
+    private void cleanUp () {
+        foreach (ref child; this.children) {
+            // Should delete children before this node.
+            Controller.deleteNode (child.nodeNumber);
+        }
+        if (this.parent) {
+            import std.algorithm.searching : countUntil;
+            auto pos = parent.children.countUntil!(a => a == this);
+            assert (pos != -1);
+            import std.algorithm.mutation : remove;
+            parent.children = parent.children.remove (pos);
+        }
+        // Should also clean up the GUI.
+        this.guiNode.remove;
     }
     private @property void guiNode (GUINode * newNode) { m_guiNode = newNode; }
     private @property void value (string newValue) { 

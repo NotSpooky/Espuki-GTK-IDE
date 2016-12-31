@@ -106,6 +106,17 @@ struct GUINode {
         GUI.mainWindow.showAll;
     }
 
+
+    /**************************************************************************
+     * Deletes this widgets contents.
+     **************************************************************************/
+    void remove () {
+        this.verticalBox.destroy;
+        this.verticalBox = null;
+        this.childBox    = null;
+        this.entry       = null;
+        this.node        = null;
+    }
     
     /**************************************************************************
      * Returns the GUINode of the parent.
@@ -125,6 +136,7 @@ struct GUINode {
      *
      **************************************************************************/
     @property void isCurrentlySelected (bool newValue) {
+        assert (this.entry);
         this.entry.setHasFrame (newValue);
     }
 }
