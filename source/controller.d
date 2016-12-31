@@ -126,8 +126,10 @@ static struct Controller {
             import std.algorithm.mutation : remove;
             rootNodes = rootNodes.remove (nodeToDel);
         }
+        /+
         import std.stdio;
         writeln (`Current node is `, currentNode);
+        +/
         // Should change currentNode if it's the deleted node.
         if (*toDelete == currentNode) { // Current node is changed.
             if (nodes.length > 1) {
@@ -160,11 +162,13 @@ static struct Controller {
      * Set the currently selected node by index in nodes.
      **************************************************************************/
     @property private static currentNode (uint newVal) {
+        /+
         import std.stdio : writeln;
         import std.conv : text, to;
         writeln (text(`Changing currentNode from  `
             /**/ , m_currentNode == INVALID_NODE ? 
             /**/ `INVALID` : currentNode.nodeNumber.to!string, ` `, newVal));
+        +/
         if (newVal == INVALID_NODE) { // Doesn't check existence in nodes.
             /+
             assert (!nodes.length
