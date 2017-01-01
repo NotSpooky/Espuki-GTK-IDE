@@ -13,14 +13,14 @@ static struct GUI {
         import gtk.MainWindow;
         mainWindow = new MainWindow ("Espuki IDE");
         mainWindow.setDefaultSize (500, 500);
-        
-        // Initializes GUI elements.
-        import gtk.MenuBar;
-        auto mainMenu = new MenuBar ();
-            import gtk.MenuItem;
-            mainMenu.append ("File");
         import gtk.Box;
         auto mainBox = new Box (Orientation.VERTICAL, /*Spacing*/ 15);
+        // Initializes GUI elements.
+            import gtk.MenuBar;
+            auto mainMenu = new MenuBar ();
+                import gtk.MenuItem;
+                mainMenu.append ("_File");
+            mainBox.add (mainMenu);
             import gtk.Entry;
             mainEntry = new Entry ();
             // Enter key is pressed.
