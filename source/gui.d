@@ -58,7 +58,7 @@ static struct GUI {
             Controller.parseCommand (command);
             mainOutput.setText ("");
         } catch (Exception e) {
-            mainOutput.setText (e.msg);
+            mainOutput.setMarkup (`<span color='red'>` ~ e.msg ~ `</span>`);
         }
         label.setText ("");
     }
@@ -69,15 +69,16 @@ struct GUINode {
     Box verticalBox = null; /// Contains the main info of this node.
     Box childBox    = null; /// Contains this nodes children.
     
+    mixin NodeLabel;
     @disable this ();
     /**************************************************************************
      *
      * Params:
-     *      label = Text to display.
+     *      labelText = Text to display.
      *      node  = Controller node that contains the logic of this graphical
      *            node.
      **************************************************************************/
-    this (string label, Node * node) {
+    this (string labelText, Node * node) {
         assert (node, `There should be a node`);
         this.verticalBox = new Box (Orientation.VERTICAL  , /*Spacing*/ 5);
         this.childBox    = new Box (Orientation.HORIZONTAL, /*Spacing*/ 10);
@@ -85,8 +86,8 @@ struct GUINode {
         import std.conv : to;
         import gtk.Label;
         this.verticalBox.add (new Label (node.nodeNumber.to!string));
-
-        this.m_label = NodeLabel (label, verticalBox);
+        createLabel (labelText);
+        this.verticalBox.add (m_label);
         this.verticalBox.add (this.childBox);
         if (parent) {
             // This box is added to the childBox of the parent.
@@ -94,16 +95,12 @@ struct GUINode {
         } else {
             // Root node.
             GUI.canvas.rootBox.add (this.verticalBox);
-            this.m_label.addAttribute (NodeLabel.Attribute.Declaration);
+            addAttribute (Attribute.Declaration);
         }
         //this.label.setHasFrame = false;
         GUI.mainWindow.showAll;
     }
 
-
-    @property void text (string newValue) {
-        m_label.text = newValue;
-    }
     /**************************************************************************
      * Deletes this widgets contents.
      **************************************************************************/
@@ -123,24 +120,6 @@ struct GUINode {
         return node.parent ? node.parent.guiNode : null;
     }
 
-    /**************************************************************************
-     *
-     **************************************************************************/
-    @property void isCurrentlySelected (bool newValue) {
-        if (newValue) {
-            this.m_label.addAttribute (NodeLabel.Attribute.Selected);
-        } else {
-            this.m_label.removeAttribute (NodeLabel.Attribute.Selected);
-        }
-    }
-    @property auto ref type () {
-        assert (this.node);
-        import espukiide.controller : Node;
-        return this.node.type;
-    }
-
-    import gtk.Label;
-    private NodeLabel m_label;
     import espukiide.controller : Node;
     private Node * node = null;    /// Controller counterpart.
 }
@@ -178,10 +157,10 @@ private class Canvas : Layout {
     }
 }
 
-struct NodeLabel {
-    @disable this ();
+enum Attribute {Selected, Declaration}
+mixin template NodeLabel () {
     import gtk.Box;
-    this (string labelText, ref Box box) {
+    void createLabel (string labelText) {
         import std.range    : repeat, take;
         import std.array    : array;
         import std.bitmanip : BitArray;
@@ -193,12 +172,10 @@ struct NodeLabel {
         this.text (labelText);
         this.m_label.setMarginBottom (20);
         this.m_label.setSelectable (true); // Allows copying their text.
-        box.add (m_label);
     }
     import gtk.Label;
     private Label label;
     private string labelText;
-    enum Attribute {Selected, Declaration}
     void addAttribute (Attribute attribute) {
         if (!m_attributes [attribute]) {
             m_attributes [attribute] = true;

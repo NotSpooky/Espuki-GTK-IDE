@@ -187,12 +187,13 @@ static struct Controller {
         import std.exception : enforce;
         enforce (newVal in nodes
         /**/ , `Tried assigning currentNode to a non-existent one`);
+        import espukiide.gui : Attribute;
         if (m_currentNode != INVALID_NODE) {
-            currentNode.guiNode.isCurrentlySelected = false;
+            currentNode.guiNode.removeAttribute (Attribute.Selected);
         }
         // Current node has been set.
         m_currentNode = newVal;
-        currentNode.guiNode.isCurrentlySelected = true;
+        currentNode.guiNode.addAttribute (Attribute.Selected);
     }
     /**************************************************************************
      * Set the currently selected node by node pointer.
