@@ -46,9 +46,9 @@ static struct GUI {
     static MainWindow mainWindow = null;
 
     import gtk.Entry;
-    private static void commandEntered (T)(T entry) {
-        assert (entry && entry == mainEntry);
-        auto command = entry.getText;
+    private static void commandEntered (T)(T label) {
+        assert (label && label == mainEntry);
+        auto command = label.getText;
         debug {
             import std.stdio;
             writeln ("Command: ", command);
@@ -60,7 +60,7 @@ static struct GUI {
         } catch (Exception e) {
             mainOutput.setText (e.msg);
         }
-        entry.setText ("");
+        label.setText ("");
     }
 }
 
@@ -68,11 +68,6 @@ struct GUINode {
     import gtk.Box;
     Box verticalBox = null; /// Contains the main info of this node.
     Box childBox    = null; /// Contains this nodes children.
-    import gtk.Entry;
-    Entry entry     = null; /// Graphical text of the node, might differ from
-                            /// information of the controller.
-    import espukiide.controller;
-    Node * node     = null; /// Controller counterpart.
     
     @disable this ();
     /**************************************************************************
@@ -84,16 +79,14 @@ struct GUINode {
      **************************************************************************/
     this (string label, Node * node) {
         assert (node, `There should be a node`);
-        assert (label);
         this.verticalBox = new Box (Orientation.VERTICAL  , /*Spacing*/ 5);
         this.childBox    = new Box (Orientation.HORIZONTAL, /*Spacing*/ 10);
         this.node = node;
         import std.conv : to;
         import gtk.Label;
         this.verticalBox.add (new Label (node.nodeNumber.to!string));
-        this.entry = new Entry (label);
-        this.entry.setMarginBottom (20);
-        this.verticalBox.add (this.entry);
+
+        this.m_label = NodeLabel (label, verticalBox);
         this.verticalBox.add (this.childBox);
         if (parent) {
             // This box is added to the childBox of the parent.
@@ -101,12 +94,16 @@ struct GUINode {
         } else {
             // Root node.
             GUI.canvas.rootBox.add (this.verticalBox);
+            this.m_label.addAttribute (NodeLabel.Attribute.Declaration);
         }
-        this.entry.setHasFrame = false;
+        //this.label.setHasFrame = false;
         GUI.mainWindow.showAll;
     }
 
 
+    @property void text (string newValue) {
+        m_label.text = newValue;
+    }
     /**************************************************************************
      * Deletes this widgets contents.
      **************************************************************************/
@@ -114,7 +111,6 @@ struct GUINode {
         this.verticalBox.destroy;
         this.verticalBox = null;
         this.childBox    = null;
-        this.entry       = null;
         this.node        = null;
     }
     
@@ -127,18 +123,26 @@ struct GUINode {
         return node.parent ? node.parent.guiNode : null;
     }
 
-    @property void label (string newLabel) {
-        assert (this.entry);
-        this.entry.setText (newLabel);
-    }
-    
     /**************************************************************************
      *
      **************************************************************************/
     @property void isCurrentlySelected (bool newValue) {
-        assert (this.entry);
-        this.entry.setHasFrame (newValue);
+        if (newValue) {
+            this.m_label.addAttribute (NodeLabel.Attribute.Selected);
+        } else {
+            this.m_label.removeAttribute (NodeLabel.Attribute.Selected);
+        }
     }
+    @property auto ref type () {
+        assert (this.node);
+        import espukiide.controller : Node;
+        return this.node.type;
+    }
+
+    import gtk.Label;
+    private NodeLabel m_label;
+    import espukiide.controller : Node;
+    private Node * node = null;    /// Controller counterpart.
 }
 
 import gtk.Layout;
@@ -172,4 +176,64 @@ private class Canvas : Layout {
         }+/
         return false; // Allows the contained widgets to be rendered.
     }
+}
+
+struct NodeLabel {
+    @disable this ();
+    import gtk.Box;
+    this (string labelText, ref Box box) {
+        import std.range    : repeat, take;
+        import std.array    : array;
+        import std.bitmanip : BitArray;
+        this.m_attributes // All initialized to false.
+        /**/ = BitArray (false.repeat.take(Attribute.max + 1).array);
+
+        import gtk.Label;
+        this.m_label = new Label (``);
+        this.text (labelText);
+        this.m_label.setMarginBottom (20);
+        this.m_label.setSelectable (true); // Allows copying their text.
+        box.add (m_label);
+    }
+    import gtk.Label;
+    private Label label;
+    private string labelText;
+    enum Attribute {Selected, Declaration}
+    void addAttribute (Attribute attribute) {
+        if (!m_attributes [attribute]) {
+            m_attributes [attribute] = true;
+            updateState;
+        }
+    }
+    void removeAttribute (Attribute attribute) {
+        if (m_attributes [attribute]) {
+            m_attributes [attribute] = false;
+            updateState;
+        }
+    }
+    @property void text (string newValue) {
+        rawText = newValue;
+        updateState;
+    }
+    enum declarationColor = `#00657F`;
+    /***************************************************************************
+     * Updates the text output.
+     * Should be called whenever there's some change to it.
+     **************************************************************************/
+    private void updateState () {
+        string markup = ``;
+        m_label.setMarkup (rawText);
+        if (m_attributes [Attribute.Selected]) {
+            markup ~= `weight='bold' `;
+        }
+        if (m_attributes [Attribute.Declaration]) {
+            markup ~= `size='x-large' color='` ~ declarationColor ~ `'`;
+        }
+        m_label.setMarkup (`<span ` ~ markup ~ `>` ~ rawText ~ `</span>`);
+    }
+    import std.bitmanip : BitArray;
+    private BitArray m_attributes;
+    import gtk.Label;
+    private Label m_label;
+    string rawText; /// Without formatting.
 }

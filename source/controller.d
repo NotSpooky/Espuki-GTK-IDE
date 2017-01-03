@@ -56,7 +56,8 @@ static struct Controller {
             case `Command.Literal`:
                 if (Controller.nodes.length == 0) { // New node.
                     Controller.addNode (null /*Root*/
-                    /**/ , match.matches [0] /*Value*/);
+                    /**/ , match.matches [0] /*Value*/
+                    /**/ , NodeType.Declaration);
                 } else { // Edit current node. Has to be root.
                     enforce (!Controller.currentNode.parent,
                     /**/ `Cannot assign a literal to a non-root node.`);
@@ -66,7 +67,8 @@ static struct Controller {
             case `Command.Expression`:
                 if (Controller.nodes.length == 0) { // New node.
                     Controller.addNode (null /*Root*/
-                    /**/ , match.matches [0] /*Value*/);
+                    /**/ , match.matches [0] /*Value*/
+                    /**/ , NodeType.Declaration);
                 } else { // Change current node value.
                     Controller.currentNode.value = match.matches [0];
                 }
@@ -80,10 +82,12 @@ static struct Controller {
                 }
                 break;
             case `Command.NewRootNode`:
-                Controller.addNode (null /*Root*/, match.matches[1] /*Value*/);
+                Controller.addNode (null /*Root*/, match.matches[1] /*Value*/
+                /**/ , NodeType.Declaration);
                 break;
             case `Command.NewChild`:
-                Controller.addNode (currentNode, match.matches[1] /*Value*/);
+                Controller.addNode (currentNode, match.matches[1] /*Value*/
+                /**/ , NodeType.Expression);
                 break;
             case `Command.DeleteNode`:
                 import std.conv : to;
@@ -98,13 +102,16 @@ static struct Controller {
         }
     }
     /// All new nodes should be created with this.
-    static void addNode (Node * parent, string label) {
+    static void addNode (Node * parent, string label
+    /**/ , NodeType type) {
         Node * insertedNode = null;
         if (parent) {
-            parent.children ~= Node (parent, label, lastCount);
+            parent.children ~= Node (parent, label, lastCount, type);
             insertedNode = &parent.children [$-1];
-        } else {
-            rootNodes ~= Node (parent, label, lastCount);
+        } else { // Root node.
+            assert (type == NodeType.Declaration
+            /**/ , `Root nodes should be function declarations.`);
+            rootNodes ~= Node (parent, label, lastCount, type);
             insertedNode = &rootNodes [$-1];
         }
         // Cannot assign &this in the constructor.
@@ -196,6 +203,7 @@ static struct Controller {
     private static uint m_currentNode = INVALID_NODE;
 }
 
+enum NodeType {Expression, Declaration}
 struct Node {
     // All node construction should be made with Controller.addNode;
     import espukiide.gui : GUINode;
@@ -206,6 +214,7 @@ struct Node {
         assert (m_guiNode, `No guiNode, make sure to call Node.start`);
         return m_guiNode;
     }
+    @property NodeType type () {return m_type;}
     // A 'destructor'. Should be called before deleting this node.
     private void cleanUp () {
         foreach (ref child; this.children) {
@@ -225,15 +234,17 @@ struct Node {
     private @property void guiNode (GUINode * newNode) { m_guiNode = newNode; }
     private @property void value (string newValue) { 
         m_value = newValue;
-        guiNode.label = newValue;
+        guiNode.text = newValue;
     }
     @disable this ();
-    private this (Node * parent, string value, uint nodeNumber) {
+    private this (Node * parent, string value, uint nodeNumber, NodeType type) {
         this.parent     = parent;
         this.children   = [];
         this.m_value    = value;
         this.nodeNumber = nodeNumber;
+        this.m_type     = type;
     }
     private GUINode * m_guiNode = null;
     private string m_value      = null;
+    private NodeType m_type;
 }
