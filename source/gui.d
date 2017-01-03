@@ -95,7 +95,6 @@ struct GUINode {
         } else {
             // Root node.
             GUI.canvas.rootBox.add (this.verticalBox);
-            addAttribute (Attribute.Declaration);
         }
         //this.label.setHasFrame = false;
         GUI.mainWindow.showAll;
@@ -120,6 +119,9 @@ struct GUINode {
         return node.parent ? node.parent.guiNode : null;
     }
 
+    @property auto ref type () {
+        return this.node.type;
+    }
     import espukiide.controller : Node;
     private Node * node = null;    /// Controller counterpart.
 }
@@ -157,7 +159,7 @@ private class Canvas : Layout {
     }
 }
 
-enum Attribute {Selected, Declaration}
+enum Attribute {Selected}
 mixin template NodeLabel () {
     import gtk.Box;
     void createLabel (string labelText) {
@@ -203,8 +205,13 @@ mixin template NodeLabel () {
         if (m_attributes [Attribute.Selected]) {
             markup ~= `weight='bold' `;
         }
-        if (m_attributes [Attribute.Declaration]) {
-            markup ~= `size='x-large' color='` ~ declarationColor ~ `'`;
+        final switch (this.type) {
+            import espukiide.controller : NodeType;
+            case NodeType.Expression: // Use default.
+                break;
+            case NodeType.Declaration:
+                markup ~= `size='x-large' color='` ~ declarationColor ~ `'`;
+                break;
         }
         m_label.setMarkup (`<span ` ~ markup ~ `>` ~ rawText ~ `</span>`);
     }
