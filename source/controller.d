@@ -8,98 +8,120 @@ static struct Controller {
             `Command:
                 # If match [1] is not Empty, then a command matched but there's
                 # still more text. It should not recognise.
-                MainC        <  RealCommand (Unrecognised / Empty)
-                RealCommand  <  Arrow        / #Node num.
-                                DeleteNode   /
-                                Literal      /
-                                GoToParent   /
-                                NewRootNode  /
-                                NewChild     /
-                                Expression   /
-                                Unrecognised /
+                EnteredText  <  ValidCommand (Unrecognised / Empty)
+                # Syntactically valid command.
+                ValidCommand <  # Creates a root node.
+                                CreateRoot Expression             /
+                                # Creates a child node of the selected
+                                # and puts a value in it.
+                                SelectNode CreateChild Expression /
+                                # Deletes the selected node.
+                                SelectNode DeleteNode             /
+                                # Puts value in selected node.
+                                SelectNode Expression             /
+                                # Invalid command.
+                                Unrecognised                      /
+                                # Do nothing.
                                 Empty
-                Arrow        <  Number ">"
-                Number       <~ [0-9]+
-                Literal      <  Number    /
+                SelectNode   <  GoToNode            / # Select by number.
+                                GoToParent          / # Select parent.
+                                Empty                 # Use currently selected.
+                UnsignedInt  <~ [0-9]+
+                Expression   <  Name / Literal / Empty
+                Literal      <  UnsignedInt           /
                                 StringLit
                 StringLit    <~ '\"' (!'\"' ('\\\"' / .))* '\"'
-                GoToParent   <  ".." (Literal / Expression / Empty)
-                NewRootNode  <  "]" (Literal / Expression / Empty)
-                NewChild     <  "." Expression
-                DeleteNode   <  Number "<"
-                Expression   <  Name
+                GoToNode     <  UnsignedInt :">"
+                GoToParent   <  ".."
+                CreateRoot   <  "]"
+                CreateChild  <  "."
+                DeleteNode   <  "<"
                 Name         <~ [a-zA-Z][a-zA-Z0-9]*
                 Unrecognised <~ .+
                 Empty        <  eps`
         ));
         auto parsedCommand = Command (command);
+        debug {
+            import std.stdio;
+            writeln (parsedCommand);
+        }
         assert (parsedCommand.name == `Command`
         /**/ , `Should match Command at the root.`);
         auto match = parsedCommand.children [0];
-        assert (match.name == `Command.MainC`
-        /**/ , `Should match MainC after the root.`);
+        assert (match.name == `Command.EnteredText`
+        /**/ , `Should match EnteredText after the root.`);
         import std.exception : enforce;
         enforce (match.children [1].name == `Command.Empty`
         /**/ , `Got more than a single command: ` 
         /**/ ~ match.matches [0] ~ ` <|> ` ~ match.matches [1]);
         match = match.children [0];
-        assert (match.name == `Command.RealCommand`
-        /**/ , `RealCommand should be the first match of MainC.`);
+        assert (match.name == `Command.ValidCommand`
+        /**/ , `ValidCommand should be the first match of EnteredText.`);
 
-        match = match.children [0]; // Rule of RealCommand.
-        switch ( match.name ) {
-            import std.conv : text, to;
-            case `Command.Arrow`:
-                auto nodeNumber = match.matches[0].to!uint;
-                Controller.currentNode = nodeNumber;
-                break;
-            case `Command.Literal`:
-                if (Controller.nodes.length == 0) { // New node.
-                    Controller.addNode (null /*Root*/
-                    /**/ , match.matches [0] /*Value*/
-                    /**/ , NodeType.Declaration);
-                } else { // Edit current node. Has to be root.
-                    enforce (!Controller.currentNode.parent,
-                    /**/ `Cannot assign a literal to a non-root node.`);
-                    Controller.currentNode.value = match.matches[0];
+        switch (match.children [0].name) {
+            case `Command.SelectNode`:
+                auto selection     = match.children [0];
+                auto selectionType = selection.children [0].name;
+                auto selectedNode  = INVALID_NODE;
+                if (selectionType == `Command.GoToNode`) {
+                    import std.conv : to;
+                    selectedNode = selection.matches [0].to!uint;
+                } else if (selectionType == `Command.GoToParent`) {
+                    auto currentParent = currentNode.parent;
+                    enforce (currentParent
+                    /**/ , `Tried accessing parent of root node.`);
+                    selectedNode = currentParent.nodeNumber;
+                } else { // Use currently selected node.
+                    assert (selectionType == `Command.Empty`);
+                    try {
+                        selectedNode = this.currentNode.nodeNumber;
+                    } catch (Exception e) {
+                        assert (!nodes.length
+                        /**/ , `If current node is invalid, then there `
+                        /**/ ~ `shouldn't be nodes at all.`);
+                    }
                 }
+
+                // Node to use has been selected.
+                auto following = match.children [1];
+
+                if (following.name == `Command.CreateChild`) {
+                    if (selectedNode != INVALID_NODE) {
+                        this.currentNode = selectedNode;
+                        Controller.addNode (currentNode /* Parent*/
+                        /**/ , match.matches [2] /*Value*/
+                        /**/ , NodeType.Expression);
+                    } else { // No nodes, should create a new node.
+                        createRootNode (match.matches [2]);
+                    }
+                } else if (following.name == `Command.DeleteNode`) {
+                    enforce (selectedNode != INVALID_NODE, `No node to delete`);
+                    deleteNode (selectedNode);
+                } else if (following.name == `Command.Expression`) {
+                    if (selectedNode != INVALID_NODE) {
+                        this.currentNode = selectedNode;
+                        if (following.children [0].name != `Command.Empty`) {
+                            // If Empty, should just change current node.
+                            this.currentNode.value = following.matches [0];
+                        }
+                    } else { // There's no current node. Create a root one.
+                        createRootNode (following.matches [0]);
+                    }
+                } else { assert (0, `Unexpected command.`);}
                 break;
-            case `Command.Expression`:
-                if (Controller.nodes.length == 0) { // New node.
-                    Controller.addNode (null /*Root*/
-                    /**/ , match.matches [0] /*Value*/
-                    /**/ , NodeType.Declaration);
-                } else { // Change current node value.
-                    Controller.currentNode.value = match.matches [0];
-                }
+            case `Command.CreateRoot`:
+                createRootNode (match.children [1].matches [0]);
                 break;
-            case `Command.GoToParent`:
-                enforce (currentNode.parent
-                /**/ , `Current node doesn't have a parent`);
-                Controller.currentNode = Controller.currentNode.parent;
-                if (match.matches [1] != "") {
-                    Controller.currentNode.value = match.matches [1];
-                }
+            case `Command.Empty`:        // Do nothing.
                 break;
-            case `Command.NewRootNode`:
-                Controller.addNode (null /*Root*/, match.matches[1] /*Value*/
-                /**/ , NodeType.Declaration);
-                break;
-            case `Command.NewChild`:
-                Controller.addNode (currentNode, match.matches[1] /*Value*/
-                /**/ , NodeType.Expression);
-                break;
-            case `Command.DeleteNode`:
-                import std.conv : to;
-                Controller.deleteNode (match.matches [0].to!uint);
-                break;
-            case `Command.Unrecognised`:
+            case `Command.Unrecognised`: // Invalid command.
                 throw new Exception (`Unrecognised command: ` ~ command);
-            case `Command.Empty` : // Do nothing.
-                break;
             default:
-                assert(false);
+                assert (false, `Incorrect match: ` ~ match.toString);
         }
+    }
+    static void createRootNode (string value) {
+        Controller.addNode (null /* No parent*/, value, NodeType.Declaration);
     }
     /// All new nodes should be created with this.
     static void addNode (Node * parent, string label
@@ -133,10 +155,6 @@ static struct Controller {
             import std.algorithm.mutation : remove;
             rootNodes = rootNodes.remove (nodeToDel);
         }
-        /+
-        import std.stdio;
-        writeln (`Current node is `, currentNode);
-        +/
         // Should change currentNode if it's the deleted node.
         if (*toDelete == currentNode) { // Current node is changed.
             if (nodes.length > 1) {
@@ -149,8 +167,8 @@ static struct Controller {
         nodes.remove (nodeNumber);
         // Node should clean itself and its children.
         (*toDelete).cleanUp;
-
     }
+
     private static Node   [] rootNodes = [];
     private static Node * [uint] nodes; /// All nodes, identified by a number.
     private static uint lastCount = 0;  /// Used for assigning ids to new nodes.
@@ -169,24 +187,13 @@ static struct Controller {
      * Set the currently selected node by index in nodes.
      **************************************************************************/
     @property private static currentNode (uint newVal) {
-        /+
-        import std.stdio : writeln;
-        import std.conv : text, to;
-        writeln (text(`Changing currentNode from  `
-            /**/ , m_currentNode == INVALID_NODE ? 
-            /**/ `INVALID` : currentNode.nodeNumber.to!string, ` `, newVal));
-        +/
         if (newVal == INVALID_NODE) { // Doesn't check existence in nodes.
-            /+
-            assert (!nodes.length
-            /**/ , `There should be a current node if nodes exist.`);
-            +/
             m_currentNode = INVALID_NODE;
             return;
         }
         import std.exception : enforce;
         enforce (newVal in nodes
-        /**/ , `Tried assigning currentNode to a non-existent one`);
+        /**/ , `Tried assigning the current node to a non-existent one`);
         import espukiide.gui : Attribute;
         if (m_currentNode != INVALID_NODE) {
             currentNode.guiNode.removeAttribute (Attribute.Selected);

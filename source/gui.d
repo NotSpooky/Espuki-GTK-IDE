@@ -58,7 +58,12 @@ static struct GUI {
             Controller.parseCommand (command);
             mainOutput.setText ("");
         } catch (Exception e) {
-            mainOutput.setMarkup (`<span color='red'>` ~ e.msg ~ `</span>`);
+            import glib.SimpleXML;
+            mainOutput.setMarkup (
+            /**/ `<span color='red'>` 
+            /**/ ~ SimpleXML.markupEscapeText (e.msg, e.msg.length) 
+            /**/ ~ `</span>`
+            );
         }
         label.setText ("");
     }
@@ -201,7 +206,6 @@ mixin template NodeLabel () {
      **************************************************************************/
     private void updateState () {
         string markup = ``;
-        m_label.setMarkup (rawText);
         if (m_attributes [Attribute.Selected]) {
             markup ~= `weight='bold' `;
         }
@@ -213,7 +217,10 @@ mixin template NodeLabel () {
                 markup ~= `size='x-large' color='` ~ declarationColor ~ `'`;
                 break;
         }
-        m_label.setMarkup (`<span ` ~ markup ~ `>` ~ rawText ~ `</span>`);
+        import glib.SimpleXML;
+        m_label.setMarkup (`<span ` ~ markup ~ `>` 
+        /**/ ~ SimpleXML.markupEscapeText (rawText, rawText.length) 
+        /**/ ~ `</span>`);
     }
     import std.bitmanip : BitArray;
     private BitArray m_attributes;
