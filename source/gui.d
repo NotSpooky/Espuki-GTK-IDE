@@ -13,18 +13,39 @@ static struct GUI {
         import gtk.MainWindow;
         mainWindow = new MainWindow ("Espuki IDE");
         mainWindow.setDefaultSize (500, 500);
+
+        // Accel group is used for global keybindings like Control-Q
+        import gtk.AccelGroup;
+        auto accelGroup = new AccelGroup ();
+        mainWindow.addAccelGroup (accelGroup);
+
         import gtk.Box;
         auto mainBox = new Box (Orientation.VERTICAL, /*Spacing*/ 15);
         // Initializes GUI elements.
             import gtk.MenuBar;
             auto mainMenu = new MenuBar ();
+                auto fileMenu = mainMenu.append ("_File");
                 import gtk.MenuItem;
-                mainMenu.append ("_File");
+                import std.stdio;
+                import gtk.Main;
+                import gdk.Keysyms : GdkKeysyms;
+                MenuItem quitMenuIt = new MenuItem ((n=>Main.quit), `_Quit`
+                /**/ , ``, true, accelGroup, GdkKeysyms.GDK_Q);
+                fileMenu.append (quitMenuIt);
+                import espukiide.controller;
+                MenuItem openMenuIt = new MenuItem (
+                /**/ (n=>Controller.openFile (GUI.chooseFile!false))
+                /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
+                fileMenu.append (openMenuIt);
+                MenuItem saveMenuIt = new MenuItem (
+                /**/ (n=>Controller.saveFile (GUI.chooseFile!true))
+                /**/ , `_Save`,``, true, accelGroup, GdkKeysyms.GDK_S);
+                fileMenu.append (saveMenuIt);
             mainBox.add (mainMenu);
             import gtk.Entry;
             mainEntry = new Entry ();
             // Enter key is pressed.
-            mainEntry.addOnActivate  (n => commandEntered (n));
+            mainEntry.addOnActivate  (n => GUI.commandEntered (n));
             mainBox.add (mainEntry);
             import gtk.Label;
             mainOutput = new Label ("Start by typing a function name.");
@@ -35,6 +56,9 @@ static struct GUI {
 
         // Starts the application.
         mainWindow.showAll();
+
+
+
         Main.run();
     }
     static Canvas canvas         = null;
@@ -66,6 +90,37 @@ static struct GUI {
             );
         }
         label.setText ("");
+    }
+
+    /**************************************************************************
+     * Params:
+     *      saving wether its saving (true) or opening files (false).
+     **************************************************************************/
+    static auto ref chooseFile (bool saving) () {
+        import gtk.FileChooserDialog;
+        static if (saving) {
+            auto fileAction = FileChooserAction.SAVE;
+        } else {
+            auto fileAction = FileChooserAction.OPEN;
+        }
+        auto fileChooser = new FileChooserDialog (`Select file(s)`, mainWindow
+        /**/ , fileAction, null /*Button text*/);
+        fileChooser.run;
+        fileChooser.hide;
+        /+static if (saving) {+/
+            auto toRet = fileChooser.getFilename;
+        /+} else {
+            // Segfaults.
+            fileChooser.setSelectMultiple (true);
+            import glib.ListSG; // Singly-linked list.
+            import gobject.Value;
+            string [] toRet = [];
+            auto filenames = fileChooser.getFilenames.toArray!Value;
+            foreach (filename; filenames) {
+                toRet ~= filename.getString;
+            }
+        }+/
+        return toRet;
     }
 }
 

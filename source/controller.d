@@ -120,11 +120,27 @@ static struct Controller {
                 assert (false, `Incorrect match: ` ~ match.toString);
         }
     }
-    static void createRootNode (string value) {
+
+    static void saveFile (string filename) {
+        // TO DO: Append espuki version.
+        import std.stdio;
+        writeln (`Saving `, filename);
+        import std.file : append, write;
+        filename.write (``); // Clears the file.
+        foreach (ref rootNode ; rootNodes) {
+            filename.append (rootNode.toJSON);
+        }
+    }
+    static void openFile (string filename) {
+        import std.stdio;
+        writeln (`Opening`, filename);
+    }
+
+    private static void createRootNode (string value) {
         Controller.addNode (null /* No parent*/, value, NodeType.Declaration);
     }
     /// All new nodes should be created with this.
-    static void addNode (Node * parent, string label
+    private static void addNode (Node * parent, string label
     /**/ , NodeType type) {
         Node * insertedNode = null;
         if (parent) {
@@ -211,7 +227,7 @@ static struct Controller {
     private static uint m_currentNode = INVALID_NODE;
 }
 
-enum NodeType {Expression, Declaration}
+enum NodeType { Declaration, Expression }
 struct Node {
     // All node construction should be made with Controller.addNode;
     import espukiide.gui : GUINode;
@@ -222,7 +238,7 @@ struct Node {
         assert (m_guiNode, `No guiNode, make sure to call Node.start`);
         return m_guiNode;
     }
-    @property NodeType type () {return m_type;}
+    @property NodeType type () { return m_type; }
     // A 'destructor'. Should be called before deleting this node.
     private void cleanUp () {
         foreach (ref child; this.children) {
@@ -244,6 +260,7 @@ struct Node {
         m_value = newValue;
         guiNode.text = newValue;
     }
+    private @property auto ref value () { return m_value; }
     @disable this ();
     private this (Node * parent, string value, uint nodeNumber, NodeType type) {
         this.parent     = parent;
@@ -253,6 +270,25 @@ struct Node {
         this.m_type     = type;
     }
     private GUINode * m_guiNode = null;
-    private string m_value      = null;
-    private NodeType m_type;
+    private string    m_value   = null;
+    private NodeType  m_type;
+
+    private string toJSON () {
+        import espukiide.stringhandler : escape;
+        import std.algorithm : fold;
+        import std.conv : to;
+        return
+            `{
+                "type" : "` ~ this.type.to!string ~ `",
+                "value" : "` ~ this.value.escape ~ `" `
+                 ~ (children.length ? `
+                    , "children" : [` ~
+                        this.children [1..$].fold!
+                        /**/ ((a,b) => (a ~ `, ` ~ b.toJSON))
+                        /**/ (this.children [0].toJSON)
+                    ~ `] ` 
+                    : `` // No children, no need for children attribute.
+                    ) ~ `
+            }`;
+    }
 }
