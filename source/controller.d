@@ -1,8 +1,8 @@
 module espukiide.controller;
 
 private enum INVALID_NODE = -1; /// Used to test whether a node has been set.
-static struct Controller {
-    static void parseCommand (string command) {
+struct Controller {
+    void parseCommand (string command) {
         import pegged.grammar;
         mixin (grammar (
             `Command:
@@ -88,7 +88,7 @@ static struct Controller {
                 if (following.name == `Command.CreateChild`) {
                     if (selectedNode != INVALID_NODE) {
                         this.currentNode = selectedNode;
-                        Controller.addNode (currentNode /* Parent*/
+                        this.addNode (currentNode /* Parent*/
                         /**/ , match.matches [2] /*Value*/
                         /**/ , NodeType.Expression);
                     } else { // No nodes, should create a new node.
@@ -96,7 +96,7 @@ static struct Controller {
                     }
                 } else if (following.name == `Command.DeleteNode`) {
                     enforce (selectedNode != INVALID_NODE, `No node to delete`);
-                    deleteNode (selectedNode);
+                    this.deleteNode (selectedNode);
                 } else if (following.name == `Command.Expression`) {
                     if (selectedNode != INVALID_NODE) {
                         this.currentNode = selectedNode;
@@ -121,7 +121,7 @@ static struct Controller {
         }
     }
 
-    static void saveFile (string filename) {
+    void saveFile (string filename) {
         // TO DO: Append espuki version.
         import std.stdio;
         debug writeln (`Saving `, filename);
@@ -138,7 +138,8 @@ static struct Controller {
              ~ `]`
         );
     }
-    static void openFile (string filename) {
+    
+    void openFile (string filename) {
         pragma (msg, `TO DO: When opening, open a new tab for the file.`);
         pragma (msg, `TO DO: Test NaN and non-ASCII JSON.`);
         import std.stdio;
@@ -156,40 +157,42 @@ static struct Controller {
             // File format expects an array with the objects of the root nodes
             // inside.
             foreach (ref newRoot; document.array) {
-                Node.fromJSON (newRoot, null /*No parent.*/);
+                this.fromJSON (newRoot, null /*No parent.*/);
             }
         }
         catch (JSONException e) {
             throw new JSONException (`Error reading file: ` ~ e.msg);
         }
-
-        /+
-        foreach (root; document) {
-            createRootNode (root.value);
-            foreach (child; root.children) {
-                Controller.addNode (root, child.value, );
-                // Must take node types from the JSON.
-                // Can be both depth first or breadth first insertion.
-                // Maybe use most efficient one.
+    }
+    import std.json : JSONValue;
+    private void fromJSON (JSONValue jValue, Node * parent) {
+        import std.json;
+        import std.conv : to;
+        auto newNode = this.addNode (parent, jValue [`value`].str
+        /**/ , jValue [`type`].str.to!NodeType);
+        auto children = `children` in jValue;
+        if (children) {
+            foreach (child ; children.array) {
+                fromJSON (child, newNode);
             }
-        }+/
+        }
     }
 
     pragma (msg, `TO DO: Change createRootNode into addRootNode`);
-    private static void createRootNode (string value) {
-        Controller.addNode (null /* No parent */, value, NodeType.Declaration);
+    private void createRootNode (string value) {
+        this.addNode (null /* No parent */, value, NodeType.Declaration);
     }
     /// All new nodes should be created with this.
-    private static auto ref addNode (Node * parent, string label
+    private auto ref addNode (Node * parent, string label
     /**/ , NodeType type) {
         Node * insertedNode = null;
         if (parent) {
-            parent.children ~= Node (parent, label, lastCount, type);
+            parent.children ~= Node (parent, label, lastCount, type, &this);
             insertedNode = &parent.children [$-1];
         } else { // Root node.
             assert (type == NodeType.Declaration
             /**/ , `Root nodes should be function declarations.`);
-            rootNodes ~= Node (parent, label, lastCount, type);
+            rootNodes ~= Node (parent, label, lastCount, type, &this);
             insertedNode = &rootNodes [$-1];
         }
         // Cannot assign &this in the constructor.
@@ -200,7 +203,7 @@ static struct Controller {
         lastCount ++;
         return insertedNode;
     }
-    static void deleteNode (uint nodeNumber) {
+    void deleteNode (uint nodeNumber) {
         auto toDelete = nodeNumber in nodes;
         import std.conv : to;
         import std.exception : enforce;
@@ -226,13 +229,13 @@ static struct Controller {
         (*toDelete).cleanUp;
     }
 
-    private static Node   [] rootNodes = [];
-    private static Node * [uint] nodes; /// All nodes, identified by a number.
-    private static uint lastCount = 0;  /// Used for assigning ids to new nodes.
+    private Node   [] rootNodes = [];
+    private Node * [uint] nodes; /// All nodes, identified by a number.
+    private uint lastCount = 0;  /// Used for assigning ids to new nodes.
     /**************************************************************************
      * Get currently selected node.
      **************************************************************************/
-    @property private static Node * currentNode () {
+    @property private Node * currentNode () {
         auto toRet = m_currentNode in nodes;
         import std.exception : enforce;
         import std.conv : to;
@@ -243,7 +246,7 @@ static struct Controller {
     /**************************************************************************
      * Set the currently selected node by index in nodes.
      **************************************************************************/
-    @property private static currentNode (uint newVal) {
+    @property private void currentNode (uint newVal) {
         if (newVal == INVALID_NODE) { // Doesn't check existence in nodes.
             m_currentNode = INVALID_NODE;
             return;
@@ -262,15 +265,15 @@ static struct Controller {
     /**************************************************************************
      * Set the currently selected node by node pointer.
      **************************************************************************/
-    @property private static currentNode (Node * newVal) {
+    @property private void currentNode (Node * newVal) {
         this.currentNode = newVal.nodeNumber;
     }
-    private static uint m_currentNode = INVALID_NODE;
+    private uint m_currentNode = INVALID_NODE;
 }
 
 enum NodeType { Declaration, Expression }
 struct Node {
-    // All node construction should be made with Controller.addNode;
+    // All node construction should be made with addNode;
     import espukiide.gui : GUINode;
     Node [] children = [];
     Node * parent = null;
@@ -284,7 +287,7 @@ struct Node {
     private void cleanUp () {
         foreach (ref child; this.children) {
             // Should delete children before this node.
-            Controller.deleteNode (child.nodeNumber);
+            controller.deleteNode (child.nodeNumber);
         }
         if (this.parent) {
             import std.algorithm.searching : countUntil;
@@ -303,13 +306,16 @@ struct Node {
     }
     private @property auto ref value () { return m_value; }
     @disable this ();
-    private this (Node * parent, string value, uint nodeNumber, NodeType type) {
+    private this (Node * parent, string value, uint nodeNumber, NodeType type
+    /**/ , Controller * controller) {
         this.parent     = parent;
         this.children   = [];
         this.m_value    = value;
         this.nodeNumber = nodeNumber;
         this.m_type     = type;
+        this.controller = controller;
     }
+    Controller *   controller   = null;
     private GUINode * m_guiNode = null;
     private string    m_value   = null;
     private NodeType  m_type;
@@ -332,19 +338,5 @@ struct Node {
                     : `` // No children, no need for children attribute.
                     ) ~ `
             }`;
-    }
-
-    import std.json : JSONValue;
-    private static void fromJSON (JSONValue jValue, Node * parent) {
-        import std.json;
-        import std.conv : to;
-        auto newNode = Controller.addNode (parent, jValue [`value`].str
-        /**/ , jValue [`type`].str.to!NodeType);
-        auto children = `children` in jValue;
-        if (children) {
-            foreach (child ; children.array) {
-                fromJSON (child, newNode);
-            }
-        }
     }
 }

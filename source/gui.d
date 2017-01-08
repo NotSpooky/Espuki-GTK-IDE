@@ -13,7 +13,8 @@ static struct GUI {
         import gtk.MainWindow;
         mainWindow = new MainWindow ("Espuki IDE");
         mainWindow.setDefaultSize (500, 500);
-
+        import espukiide.controller;
+        tabs ~= Controller ();
         // Accel group is used for global keybindings like Control-Q
         import gtk.AccelGroup;
         auto accelGroup = new AccelGroup ();
@@ -50,8 +51,10 @@ static struct GUI {
             import gtk.Label;
             mainOutput = new Label ("Start by typing a function name.");
             mainBox.add (mainOutput);
-            canvas = new Canvas ();
-            mainBox.add (canvas);
+            import gtk.Notebook;
+            notebook = new Notebook ();
+            mainBox.add (notebook);
+            notebook.appendPage (new Canvas (), `newfile.es`);
         mainWindow.add (mainBox);
 
         // Starts the application.
@@ -76,24 +79,38 @@ static struct GUI {
             );
         }
     }
-    /// Opens of saves a file depending on the saving parameter.
+    /// Opens or saves a file depending on the saving parameter.
     static void useFile (bool saving) () {
+        pragma (msg, `TODO: Ask when overwriting.`);
         auto filename = GUI.chooseFile!saving;
         if (!filename) return;
         import espukiide.controller;
         static if (saving) {
-            Controller.saveFile (filename);
+            currentTab.saveFile (filename);
         } else {
-            Controller.openFile (filename);
+            tabs ~= Controller ();
+            auto index = notebook.appendPage (new Canvas (), filename);
+            import std.stdio;
+            writeln (`index is: `, index);
+            // GTK limitation, child should be visible.
+            notebook.showAll;
+            notebook.setCurrentPage (index);
+            currentTab.openFile (filename);
         }
     }
-    static Canvas canvas         = null;
+    import gtk.Notebook;
+    static Notebook notebook     = null; /// Contains the tabs.
     import gtk.Entry;
-    static Entry mainEntry       = null;
+    static Entry mainEntry       = null; /// Text input.
     import gtk.Label;
-    static Label mainOutput      = null;
+    static Label mainOutput      = null; /// Shows messages and errors.
     import gtk.MainWindow;
     static MainWindow mainWindow = null;
+    import espukiide.controller;
+    static Controller [] tabs    = [];
+    @property static Canvas currentCanvas () {
+        return cast (Canvas) notebook.getNthPage (notebook.getCurrentPage);
+    }
 
     import gtk.Entry;
     private static void commandEntered (T)(T label) {
@@ -104,7 +121,7 @@ static struct GUI {
             writeln ("Command: ", command);
         }
         import espukiide.controller;
-        Controller.parseCommand (command);
+        currentTab.parseCommand (command);
         mainOutput.setText ("");
         label.setText ("");
     }
@@ -140,6 +157,16 @@ static struct GUI {
         }+/
         return toRet;
     }
+    
+    @property static auto ref currentTab () {
+        import gtk.Notebook;
+        auto currentPageNum = notebook.getCurrentPage;
+        import std.stdio;
+        writeln (`Using page: `, currentPageNum);
+        assert (tabs.length > currentPageNum);
+        return (tabs [currentPageNum]);
+    }
+
 }
 
 struct GUINode {
@@ -172,7 +199,7 @@ struct GUINode {
             parent.childBox.add (this.verticalBox);
         } else {
             // Root node.
-            GUI.canvas.rootBox.add (this.verticalBox);
+            GUI.currentCanvas.rootBox.add (this.verticalBox);
         }
         //this.label.setHasFrame = false;
         GUI.mainWindow.showAll;
