@@ -1,7 +1,7 @@
-module espukiide.controller;
+module espukiide.tab;
 
 private enum INVALID_NODE = -1; /// Used to test whether a node has been set.
-struct Controller {
+struct Tab {
     void parseCommand (string command) {
         import pegged.grammar;
         mixin (grammar (
@@ -287,7 +287,7 @@ struct Node {
     private void cleanUp () {
         foreach (ref child; this.children) {
             // Should delete children before this node.
-            controller.deleteNode (child.nodeNumber);
+            tab.deleteNode (child.nodeNumber);
         }
         if (this.parent) {
             import std.algorithm.searching : countUntil;
@@ -307,15 +307,15 @@ struct Node {
     private @property auto ref value () { return m_value; }
     @disable this ();
     private this (Node * parent, string value, uint nodeNumber, NodeType type
-    /**/ , Controller * controller) {
+    /**/ , Tab * tab) {
         this.parent     = parent;
         this.children   = [];
         this.m_value    = value;
         this.nodeNumber = nodeNumber;
         this.m_type     = type;
-        this.controller = controller;
+        this.tab        = tab;
     }
-    Controller *   controller   = null;
+    Tab             * tab       = null;
     private GUINode * m_guiNode = null;
     private string    m_value   = null;
     private NodeType  m_type;
