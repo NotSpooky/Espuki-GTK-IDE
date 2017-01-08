@@ -1,5 +1,7 @@
 module espukiide.gui;
 
+import espukiide.stringhandler : _;
+
 static struct GUI {
     /**************************************************************************
      * Starts running the graphical interface.
@@ -130,13 +132,15 @@ static struct GUI {
     static auto ref chooseFile (bool saving) () {
         pragma (msg, `TO DO: Switch places between filechoosers OK and Cancel`);
         import gtk.FileChooserDialog;
+
         static if (saving) {
             auto fileAction = FileChooserAction.SAVE;
         } else {
             auto fileAction = FileChooserAction.OPEN;
         }
         auto fileChooser = new FileChooserDialog (`Select file(s)`, mainWindow
-        /**/ , fileAction, null /*Button text*/);
+        /**/ , fileAction, [_(`Cancel`),_(`Ok`)] /*Button text*/
+        /**/ , [ResponseType.CANCEL, ResponseType.OK]);
         fileChooser.run;
         fileChooser.hide;
         /+static if (saving) {+/
