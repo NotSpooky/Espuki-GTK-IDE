@@ -36,11 +36,11 @@ static struct GUI {
                 fileMenu.append (quitMenuIt);
                 import espukiide.tab;
                 MenuItem openMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.useFile!false))
+                /**/ (n=>tryFun!(GUI.openFile))
                 /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
                 fileMenu.append (openMenuIt);
                 MenuItem saveMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.useFile!true))
+                /**/ (n=>tryFun!(GUI.saveFile))
                 /**/ , `_Save`,``, true, accelGroup, GdkKeysyms.GDK_S);
                 fileMenu.append (saveMenuIt);
             mainBox.add (mainMenu);
@@ -80,22 +80,21 @@ static struct GUI {
             );
         }
     }
-    /// Opens or saves a file depending on the saving parameter.
-    static void useFile (bool saving) () {
+    static void saveFile () {
         pragma (msg, `TODO: Ask when overwriting.`);
-        auto filename = GUI.chooseFile!saving;
+        currentTab.saveFile (GUI.chooseFile!true);
+    }
+    /// Opens or saves a file depending on the saving parameter.
+    static void openFile () {
+        auto filename = GUI.chooseFile!false;
         if (!filename) return;
         import espukiide.tab;
-        static if (saving) {
-            currentTab.saveFile (filename);
-        } else {
-            tabs ~= Tab ();
-            auto index = notebook.appendPage (new Canvas (), filename);
-            // GTK limitation, child should be visible.
-            notebook.showAll;
-            notebook.setCurrentPage (index);
-            currentTab.openFile (filename);
-        }
+        tabs ~= Tab ();
+        auto index = notebook.appendPage (new Canvas (), filename);
+        // GTK limitation, child should be visible.
+        notebook.showAll;
+        notebook.setCurrentPage (index);
+        currentTab.openFile (filename);
     }
     import gtk.Notebook;
     static Notebook notebook     = null; /// Contains the tabs.
@@ -159,13 +158,20 @@ static struct GUI {
         return toRet;
     }
     
-    @property static auto ref currentTab () {
+    @property private static auto ref currentTab () {
         import gtk.Notebook;
         auto currentPageNum = notebook.getCurrentPage;
         assert (tabs.length > currentPageNum);
         return (tabs [currentPageNum]);
     }
-
+    @property static void filename (string newFilename) {
+        notebook.setTabLabelText (
+        /**/ notebook.getNthPage (
+        /**  **/ notebook.getCurrentPage
+        /**/ )
+        /**/ , newFilename);
+        notebook.showAll;
+    }
 }
 
 struct GUINode {

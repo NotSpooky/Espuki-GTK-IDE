@@ -121,15 +121,17 @@ struct Tab {
         }
     }
 
-    void saveFile (string filename) {
+    void saveFile (lazy string filename) {
         // TO DO: Append espuki version.
         import std.stdio;
-        debug writeln (`Saving `, filename);
         import std.file : append, write;
-        filename.write (``); // Clears the file.
+        absoluteFilePath = savedYet ? absoluteFilePath : filename;
+        savedYet = true;
+        debug writeln (`Saving `, absoluteFilePath);
+        absoluteFilePath.write (``); // Clears the file.
         import std.algorithm.iteration : joiner, map;
         import std.conv : to;
-        filename.append ( 
+        absoluteFilePath.append ( 
             `[` ~
             rootNodes
             .map!(n=>n.toJSON)
@@ -229,9 +231,19 @@ struct Tab {
         (*toDelete).cleanUp;
     }
 
-    private Node   [] rootNodes = [];
+    string          m_absoluteFilePath = "newFile.es";
+    private bool      savedYet         = false;
+    private Node   [] rootNodes        = [];
     private Node * [uint] nodes; /// All nodes, identified by a number.
     private uint lastCount = 0;  /// Used for assigning ids to new nodes.
+    @property private string absoluteFilePath () {
+        return m_absoluteFilePath;
+    }
+    @property private void absoluteFilePath (string newFilename) {
+        m_absoluteFilePath = newFilename;
+        import espukiide.gui;
+        GUI.filename = m_absoluteFilePath;
+    } 
     /**************************************************************************
      * Get currently selected node.
      **************************************************************************/
