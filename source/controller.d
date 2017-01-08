@@ -53,7 +53,7 @@ static struct Controller {
         import std.exception : enforce;
         enforce (match.children [1].name == `Command.Empty`
         /**/ , `Got more than a single command: ` 
-        /**/ ~ match.matches [0] ~ ` <|> ` ~ match.matches [1]);
+        /**/ ~ match.matches [0] ~ ` --- ` ~ match.matches [1]);
         match = match.children [0];
         assert (match.name == `Command.ValidCommand`
         /**/ , `ValidCommand should be the first match of EnteredText.`);
@@ -124,23 +124,63 @@ static struct Controller {
     static void saveFile (string filename) {
         // TO DO: Append espuki version.
         import std.stdio;
-        writeln (`Saving `, filename);
+        debug writeln (`Saving `, filename);
         import std.file : append, write;
         filename.write (``); // Clears the file.
-        foreach (ref rootNode ; rootNodes) {
-            filename.append (rootNode.toJSON);
-        }
+        import std.algorithm.iteration : joiner, map;
+        import std.conv : to;
+        filename.append ( 
+            `[` ~
+            rootNodes
+            .map!(n=>n.toJSON)
+            .joiner(`, `)
+            .to!string
+             ~ `]`
+        );
     }
     static void openFile (string filename) {
+        pragma (msg, `TO DO: When opening, open a new tab for the file.`);
+        pragma (msg, `TO DO: Test NaN and non-ASCII JSON.`);
         import std.stdio;
-        writeln (`Opening`, filename);
+        debug writeln (`Opening`, filename);
+        import std.json;
+        import std.file : read;
+        import std.conv : to;
+        try {
+            JSONValue document = parseJSON (
+            /**/ filename.read.to!string
+            /**/ , -1 /* No depth checking */
+            /**/ , JSONOptions.specialFloatLiterals );
+            
+            document.writeln;
+            // File format expects an array with the objects of the root nodes
+            // inside.
+            foreach (ref newRoot; document.array) {
+                Node.fromJSON (newRoot, null /*No parent.*/);
+            }
+        }
+        catch (JSONException e) {
+            throw new JSONException (`Error reading file: ` ~ e.msg);
+        }
+
+        /+
+        foreach (root; document) {
+            createRootNode (root.value);
+            foreach (child; root.children) {
+                Controller.addNode (root, child.value, );
+                // Must take node types from the JSON.
+                // Can be both depth first or breadth first insertion.
+                // Maybe use most efficient one.
+            }
+        }+/
     }
 
+    pragma (msg, `TO DO: Change createRootNode into addRootNode`);
     private static void createRootNode (string value) {
-        Controller.addNode (null /* No parent*/, value, NodeType.Declaration);
+        Controller.addNode (null /* No parent */, value, NodeType.Declaration);
     }
     /// All new nodes should be created with this.
-    private static void addNode (Node * parent, string label
+    private static auto ref addNode (Node * parent, string label
     /**/ , NodeType type) {
         Node * insertedNode = null;
         if (parent) {
@@ -158,6 +198,7 @@ static struct Controller {
         nodes [lastCount] = insertedNode;
         currentNode = lastCount;
         lastCount ++;
+        return insertedNode;
     }
     static void deleteNode (uint nodeNumber) {
         auto toDelete = nodeNumber in nodes;
@@ -275,7 +316,7 @@ struct Node {
 
     private string toJSON () {
         import espukiide.stringhandler : escape;
-        import std.algorithm : fold;
+        import std.algorithm.iteration : map, joiner;
         import std.conv : to;
         return
             `{
@@ -283,12 +324,27 @@ struct Node {
                 "value" : "` ~ this.value.escape ~ `" `
                  ~ (children.length ? `
                     , "children" : [` ~
-                        this.children [1..$].fold!
-                        /**/ ((a,b) => (a ~ `, ` ~ b.toJSON))
-                        /**/ (this.children [0].toJSON)
+                        this.children
+                            .map! (n=>n.toJSON)
+                            .joiner (`, `)
+                            .to!string
                     ~ `] ` 
                     : `` // No children, no need for children attribute.
                     ) ~ `
             }`;
+    }
+
+    import std.json : JSONValue;
+    private static void fromJSON (JSONValue jValue, Node * parent) {
+        import std.json;
+        import std.conv : to;
+        auto newNode = Controller.addNode (parent, jValue [`value`].str
+        /**/ , jValue [`type`].str.to!NodeType);
+        auto children = `children` in jValue;
+        if (children) {
+            foreach (child ; children.array) {
+                fromJSON (child, newNode);
+            }
+        }
     }
 }

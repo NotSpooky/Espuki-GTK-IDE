@@ -34,18 +34,18 @@ static struct GUI {
                 fileMenu.append (quitMenuIt);
                 import espukiide.controller;
                 MenuItem openMenuIt = new MenuItem (
-                /**/ (n=>Controller.openFile (GUI.chooseFile!false))
+                /**/ (n=>tryFun!(GUI.useFile!false))
                 /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
                 fileMenu.append (openMenuIt);
                 MenuItem saveMenuIt = new MenuItem (
-                /**/ (n=>Controller.saveFile (GUI.chooseFile!true))
+                /**/ (n=>tryFun!(GUI.useFile!true))
                 /**/ , `_Save`,``, true, accelGroup, GdkKeysyms.GDK_S);
                 fileMenu.append (saveMenuIt);
             mainBox.add (mainMenu);
             import gtk.Entry;
             mainEntry = new Entry ();
             // Enter key is pressed.
-            mainEntry.addOnActivate  (n => GUI.commandEntered (n));
+            mainEntry.addOnActivate  (n => tryFun!(GUI.commandEntered) (n));
             mainBox.add (mainEntry);
             import gtk.Label;
             mainOutput = new Label ("Start by typing a function name.");
@@ -56,10 +56,36 @@ static struct GUI {
 
         // Starts the application.
         mainWindow.showAll();
-
-
-
         Main.run();
+    }
+    /**************************************************************************
+     * Tries executing fun with args as arguments.
+     * Any exception thrown has its error shown on mainOutput.
+     **************************************************************************/
+    static void tryFun (alias fun, S ...) (S args) {
+        try {
+            fun (args);
+            mainOutput.setLabel (``);
+        } catch (Exception e) {
+            assert (mainOutput, `mainOutput is null.`);
+            import glib.SimpleXML;
+            mainOutput.setMarkup (
+            /**/ `<span color='red'>`
+            /**/ ~ SimpleXML.markupEscapeText (e.msg, e.msg.length)
+            /**/ ~ `</span>`
+            );
+        }
+    }
+    /// Opens of saves a file depending on the saving parameter.
+    static void useFile (bool saving) () {
+        auto filename = GUI.chooseFile!saving;
+        if (!filename) return;
+        import espukiide.controller;
+        static if (saving) {
+            Controller.saveFile (filename);
+        } else {
+            Controller.openFile (filename);
+        }
     }
     static Canvas canvas         = null;
     import gtk.Entry;
@@ -77,18 +103,9 @@ static struct GUI {
             import std.stdio;
             writeln ("Command: ", command);
         }
-        try {
-            import espukiide.controller;
-            Controller.parseCommand (command);
-            mainOutput.setText ("");
-        } catch (Exception e) {
-            import glib.SimpleXML;
-            mainOutput.setMarkup (
-            /**/ `<span color='red'>` 
-            /**/ ~ SimpleXML.markupEscapeText (e.msg, e.msg.length) 
-            /**/ ~ `</span>`
-            );
-        }
+        import espukiide.controller;
+        Controller.parseCommand (command);
+        mainOutput.setText ("");
         label.setText ("");
     }
 
@@ -97,6 +114,7 @@ static struct GUI {
      *      saving wether its saving (true) or opening files (false).
      **************************************************************************/
     static auto ref chooseFile (bool saving) () {
+        pragma (msg, `TO DO: Switch places between filechoosers OK and Cancel`);
         import gtk.FileChooserDialog;
         static if (saving) {
             auto fileAction = FileChooserAction.SAVE;
