@@ -41,7 +41,7 @@ struct Tab {
                 Empty        <  eps`
         ));
         auto parsedCommand = Command (command);
-        debug {
+        debug (2) {
             import std.stdio;
             writeln (parsedCommand);
         }
@@ -234,8 +234,8 @@ struct Tab {
     string          m_absoluteFilePath = "newFile.es";
     private bool      savedYet         = false;
     private Node   [] rootNodes        = [];
-    private Node * [uint] nodes; /// All nodes, identified by a number.
-    private uint lastCount = 0;  /// Used for assigning ids to new nodes.
+    Node * [uint] nodes;        /// All nodes, identified by a number.
+    private uint lastCount = 0; /// Used for assigning ids to new nodes.
     @property private string absoluteFilePath () {
         return m_absoluteFilePath;
     }

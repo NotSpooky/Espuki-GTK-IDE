@@ -114,7 +114,7 @@ static struct GUI {
     private static void commandEntered (T)(T label) {
         assert (label && label == mainEntry);
         auto command = label.getText;
-        debug {
+        debug (2) {
             import std.stdio;
             writeln ("Command: ", command);
         }
@@ -176,8 +176,10 @@ static struct GUI {
 
 struct GUINode {
     import gtk.Box;
-    Box verticalBox = null; /// Contains the main info of this node.
+    Box verticalBox = null; /// Contains this entire node.
+    Frame frame     = null; /// Contains this nodes data.
     Box childBox    = null; /// Contains this nodes children.
+    import gtk.Frame;
     
     mixin NodeLabel;
     @disable this ();
@@ -191,14 +193,18 @@ struct GUINode {
     this (string labelText, Node * node) {
         assert (node, `There should be a node`);
         this.verticalBox = new Box (Orientation.VERTICAL  , /*Spacing*/ 5);
+        import gtkc.gtktypes : GtkAlign;
+        this.verticalBox.setHalign (GtkAlign.CENTER);
         this.childBox    = new Box (Orientation.HORIZONTAL, /*Spacing*/ 10);
+        this.childBox.setHalign (GtkAlign.CENTER);
         this.node = node;
         import std.conv : to;
         import gtk.Frame;
-        auto frame = new Frame (node.nodeNumber.to!string);
-        this.verticalBox.add (frame);
+        this.frame = new Frame (node.nodeNumber.to!string);
+        this.frame.setHalign (GtkAlign.CENTER);
+        this.verticalBox.add (this.frame);
         createLabel (labelText);
-        frame.add (m_label);
+        this.frame.add (m_label);
         this.verticalBox.add (this.childBox);
         if (parent) {
             // This box is added to the childBox of the parent.
@@ -207,8 +213,7 @@ struct GUINode {
             // Root node.
             GUI.currentCanvas.rootBox.add (this.verticalBox);
         }
-        //this.label.setHasFrame = false;
-        GUI.mainWindow.showAll;
+        verticalBox.showAll;
     }
 
     /**************************************************************************
@@ -219,6 +224,7 @@ struct GUINode {
         this.verticalBox = null;
         this.childBox    = null;
         this.node        = null;
+        this.frame       = null;
     }
     
     /**************************************************************************
@@ -233,6 +239,34 @@ struct GUINode {
     @property auto ref type () {
         return this.node.type;
     }
+
+    /**************************************************************************
+     * Returns the x and y positions of the middle of the frame at the top
+     **************************************************************************/
+    @property auto ref topJoint () {
+        return [boundingBox.x + (boundingBox.width / 2.0), boundingBox.y];
+    }
+
+    /**************************************************************************
+     * Returns the x and y positions of the middle of the frame at the bottom.
+     **************************************************************************/
+    @property auto ref bottomJoint () {
+        return [boundingBox.x + (boundingBox.width / 2.0)
+        /**/ , boundingBox.y + (boundingBox.height)];
+    }
+
+    
+    /**************************************************************************
+     * Utility function for bottomJoint and topJoint.
+     **************************************************************************/
+    private auto ref boundingBox () {
+        import gtkc.gdktypes : GdkRectangle;
+        GdkRectangle toRet;
+        // Uses an out parameter to return.
+        this.frame.getAllocation (toRet);
+        return toRet;
+    }
+
     import espukiide.tab : Node;
     private Node * node = null;    /// Controller counterpart.
 }
@@ -256,17 +290,28 @@ private class Canvas : Layout {
 
     import cairo.Context;
     import gtk.Widget;
+    /**************************************************************************
+     * To be used as callback for drawing the background lines.
+     **************************************************************************/
     private bool drawn (Scoped!Context cr, Widget widget) {
-        /+
         import cairo.Surface;
-        debug {
         cr.setSourceRgb (0.5, 0.6, 0.7);
         cr.setLineWidth (2);
+        foreach (ref node; GUI.currentTab.nodes) {
+            foreach (ref child; node.children) {
+                auto bottomJoint = node.guiNode.bottomJoint;
+                cr.moveTo (bottomJoint [0], bottomJoint [1]);
+                auto topJoint    = child.guiNode.topJoint;
+                cr.lineTo (topJoint [0], topJoint [1]);
+                cr.stroke;
+            }
+        }
+        /+
         cr.arc (125, 125, 25, 0, 2*3.14159);
         cr.rectangle (10, 10, 20, 20);
         cr.stroke;
         }+/
-        return false; // Allows the contained widgets to be rendered.
+        return false; // Allows the widgets on the Layout to be rendered.
     }
 }
 
