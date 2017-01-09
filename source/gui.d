@@ -246,6 +246,12 @@ struct GUINode {
         import gtk.Frame;
         this.frame = new Frame (node.nodeNumber.to!string);
         this.frame.setHalign (GtkAlign.CENTER);
+        import espukiide.tab : Node, NodeType;
+        if (node.type == NodeType.Declaration) {
+            import gtkc.gtktypes : GtkShadowType;
+            this.frame.setShadowType (GtkShadowType.NONE);
+        }
+        pragma (msg, `TO DO: Make frame change if the node type is changed.`);
         this.verticalBox.add (this.frame);
         createLabel (labelText);
         this.frame.add (m_label);
