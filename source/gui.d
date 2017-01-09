@@ -31,24 +31,28 @@ static struct GUI {
             auto mainMenu = new MenuBar ();
                 auto fileMenu = mainMenu.append ("_File");
                 import gtk.MenuItem;
-                import gtk.Main;
                 import gdk.Keysyms : GdkKeysyms;
-                MenuItem quitMenuIt = new MenuItem ((n=>Main.quit), `_Quit`
-                /**/ , ``, true, accelGroup, GdkKeysyms.GDK_Q);
-                fileMenu.append (quitMenuIt);
-                import espukiide.tab;
+                MenuItem newMenuIt = new MenuItem (
+                /**/ (n=>tryFun!(GUI.openFile!true))
+                /**/ , `_New`, ``, true, accelGroup, GdkKeysyms.GDK_N);
+                fileMenu.append (newMenuIt);
                 MenuItem openMenuIt = new MenuItem (
                 /**/ (n=>tryFun!(GUI.openFile!false))
                 /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
                 fileMenu.append (openMenuIt);
                 MenuItem saveMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.saveFile))
-                /**/ , `_Save`,``, true, accelGroup, GdkKeysyms.GDK_S);
-                MenuItem newMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.openFile!true))
-                /**/ , `_New`, ``, true, accelGroup, GdkKeysyms.GDK_N);
-                fileMenu.append (newMenuIt);
+                /**/ (n=>tryFun!(GUI.saveCurrentFile))
+                /**/ , `_Save`, ``, true, accelGroup, GdkKeysyms.GDK_S);
                 fileMenu.append (saveMenuIt);
+                MenuItem closeMenuIt = new MenuItem (
+                /**/ (n=>tryFun!(GUI.closeCurrentFile))
+                /**/ , `_Close file`, ``, true, accelGroup, GdkKeysyms.GDK_W);
+                fileMenu.append (closeMenuIt);
+                import gtk.Main;
+                MenuItem quitMenuIt = new MenuItem ((n=>Main.quit)
+                /**/ , `_Quit`, ``, true, accelGroup, GdkKeysyms.GDK_Q);
+                fileMenu.append (quitMenuIt);
+
             mainBox.add (mainMenu);
             import gtk.Entry;
             mainEntry = new Entry ();
@@ -86,7 +90,7 @@ static struct GUI {
             );
         }
     }
-    static void saveFile () {
+    static void saveCurrentFile () {
         pragma (msg, `TODO: Ask when overwriting.`);
         currentTab.saveFile (GUI.chooseFile!true);
     }
@@ -114,6 +118,23 @@ static struct GUI {
             throw e;
         }
     }
+
+    static void closeCurrentFile () {
+        if (!tabs.length) { // Same as Exit.
+            import gtk.Main;
+            Main.quit;
+        } else {
+            import std.algorithm.mutation : remove;
+            auto tabPos = currentTabPos;
+            tabs = tabs.remove (tabPos);
+            notebook.detachTab (
+            /**/ notebook.getNthPage (
+            /**  **/ notebook.getCurrentPage
+            /**/ )
+            );
+        }
+    }
+    
     import gtk.Notebook;
     static Notebook notebook     = null; /// Contains the tabs.
     import gtk.Entry;
@@ -176,12 +197,17 @@ static struct GUI {
         return toRet;
     }
     
-    @property private static auto ref currentTab () {
+    @property private static auto ref currentTabPos () {
         import gtk.Notebook;
         auto currentPageNum = notebook.getCurrentPage;
-        assert (tabs.length > currentPageNum);
-        return (tabs [currentPageNum]);
+        assert (tabs.length > currentPageNum
+        /**/ , `Current page cannot exist in tabs`);
+        return currentPageNum;
     }
+    @property private static auto ref currentTab () {
+        return tabs [currentTabPos];
+    }
+
     @property static void filename (string newFilename) {
         notebook.setTabLabelText (
         /**/ notebook.getNthPage (
