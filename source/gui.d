@@ -143,7 +143,7 @@ static struct GUI {
         fileChooser.run;
         fileChooser.hide;
         /+static if (saving) {+/
-            auto toRet = fileChooser.getFilename;
+        auto toRet = fileChooser.getFilename;
         /+} else {
             // Segfaults.
             fileChooser.setSelectMultiple (true);
@@ -194,10 +194,11 @@ struct GUINode {
         this.childBox    = new Box (Orientation.HORIZONTAL, /*Spacing*/ 10);
         this.node = node;
         import std.conv : to;
-        import gtk.Label;
-        this.verticalBox.add (new Label (node.nodeNumber.to!string));
+        import gtk.Frame;
+        auto frame = new Frame (node.nodeNumber.to!string);
+        this.verticalBox.add (frame);
         createLabel (labelText);
-        this.verticalBox.add (m_label);
+        frame.add (m_label);
         this.verticalBox.add (this.childBox);
         if (parent) {
             // This box is added to the childBox of the parent.
