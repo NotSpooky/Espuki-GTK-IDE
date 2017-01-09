@@ -2,6 +2,8 @@ module espukiide.gui;
 
 import espukiide.stringhandler : _;
 
+enum defaultFilename = `newfile.es`;
+
 static struct GUI {
     /**************************************************************************
      * Starts running the graphical interface.
@@ -36,12 +38,16 @@ static struct GUI {
                 fileMenu.append (quitMenuIt);
                 import espukiide.tab;
                 MenuItem openMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.openFile))
+                /**/ (n=>tryFun!(GUI.openFile!false))
                 /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
                 fileMenu.append (openMenuIt);
                 MenuItem saveMenuIt = new MenuItem (
                 /**/ (n=>tryFun!(GUI.saveFile))
                 /**/ , `_Save`,``, true, accelGroup, GdkKeysyms.GDK_S);
+                MenuItem newMenuIt = new MenuItem (
+                /**/ (n=>tryFun!(GUI.openFile!true))
+                /**/ , `_New`, ``, true, accelGroup, GdkKeysyms.GDK_N);
+                fileMenu.append (newMenuIt);
                 fileMenu.append (saveMenuIt);
             mainBox.add (mainMenu);
             import gtk.Entry;
@@ -55,7 +61,7 @@ static struct GUI {
             import gtk.Notebook;
             notebook = new Notebook ();
             mainBox.add (notebook);
-            notebook.appendPage (new Canvas (), `newfile.es`);
+            notebook.appendPage (new Canvas (), defaultFilename);
         mainWindow.add (mainBox);
 
         // Starts the application.
@@ -84,17 +90,29 @@ static struct GUI {
         pragma (msg, `TODO: Ask when overwriting.`);
         currentTab.saveFile (GUI.chooseFile!true);
     }
-    /// Opens or saves a file depending on the saving parameter.
-    static void openFile () {
-        auto filename = GUI.chooseFile!false;
-        if (!filename) return;
-        import espukiide.tab;
-        tabs ~= Tab ();
-        auto index = notebook.appendPage (new Canvas (), filename);
-        // GTK limitation, child should be visible.
-        notebook.showAll;
-        notebook.setCurrentPage (index);
-        currentTab.openFile (filename);
+
+    /// Opens or creates a file depending on the new parameter.
+    static void openFile (bool newFile)() {
+        string filename = defaultFilename;
+        static if (!newFile) {
+            filename = GUI.chooseFile!false;
+            if (!filename) return;
+        }
+        try {
+            auto index = notebook.appendPage (new Canvas (), filename);
+            // GTK limitation, child should be visible.
+            notebook.showAll;
+            notebook.setCurrentPage (index);
+            import espukiide.tab;
+            tabs ~= Tab ();
+            static if (!newFile) {
+                currentTab.openFile (filename);
+            }
+        } catch (Exception e) {
+            assert (tabs.length, `Just inserted a tab, it should exist.`);
+            tabs = tabs [0 .. $-1];
+            throw e;
+        }
     }
     import gtk.Notebook;
     static Notebook notebook     = null; /// Contains the tabs.
