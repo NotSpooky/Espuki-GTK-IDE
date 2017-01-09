@@ -91,7 +91,7 @@ static struct GUI {
         }
     }
     static void saveCurrentFile () {
-        pragma (msg, `TODO: Ask when overwriting.`);
+        pragma (msg, `TO DO: Ask when overwriting.`);
         currentTab.saveFile (GUI.chooseFile!true);
     }
 
@@ -236,16 +236,16 @@ struct GUINode {
      **************************************************************************/
     this (string labelText, Node * node) {
         assert (node, `There should be a node`);
-        this.verticalBox = new Box (Orientation.VERTICAL  , /*Spacing*/ 5);
+        this.verticalBox = new Box (Orientation.VERTICAL  , /*Spacing*/ 10);
         import gtkc.gtktypes : GtkAlign;
-        this.verticalBox.setHalign (GtkAlign.CENTER);
+        this.verticalBox.setHalign (GtkAlign.FILL);
         this.childBox    = new Box (Orientation.HORIZONTAL, /*Spacing*/ 10);
         this.childBox.setHalign (GtkAlign.CENTER);
         this.node = node;
         import std.conv : to;
         import gtk.Frame;
         this.frame = new Frame (node.nodeNumber.to!string);
-        this.frame.setHalign (GtkAlign.CENTER);
+        this.frame.setHalign (GtkAlign.FILL);
         import espukiide.tab : Node, NodeType;
         if (node.type == NodeType.Declaration) {
             import gtkc.gtktypes : GtkShadowType;
@@ -378,7 +378,6 @@ mixin template NodeLabel () {
         import gtk.Label;
         this.m_label = new Label (``);
         this.text (labelText);
-        this.m_label.setMarginBottom (20);
         this.m_label.setSelectable (true); // Allows copying their text.
     }
     import gtk.Label;
