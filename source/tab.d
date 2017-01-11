@@ -53,7 +53,7 @@ struct Tab {
         import std.exception : enforce;
         enforce (match.children [1].name == `Command.Empty`
         /**/ , `Got more than a single command: ` 
-        /**/ ~ match.matches [0] ~ ` --- ` ~ match.matches [1]);
+        /**/ ~ match.matches [0] ~ ` ` ~ match.matches [1]);
         match = match.children [0];
         assert (match.name == `Command.ValidCommand`
         /**/ , `ValidCommand should be the first match of EnteredText.`);
@@ -185,8 +185,7 @@ struct Tab {
         this.addNode (null /* No parent */, value, NodeType.Declaration);
     }
     /// All new nodes should be created with this.
-    private auto ref addNode (Node * parent, string label
-    /**/ , NodeType type) {
+    private auto ref addNode (Node * parent, string label, NodeType type) {
         Node * insertedNode = null;
         if (parent) {
             parent.children ~= Node (parent, label, lastCount, type, &this);
@@ -266,13 +265,13 @@ struct Tab {
         import std.exception : enforce;
         enforce (newVal in nodes
         /**/ , `Tried assigning the current node to a non-existent one`);
-        import espukiide.gui : Attribute;
-        if (m_currentNode != INVALID_NODE) {
-            currentNode.guiNode.removeAttribute (Attribute.Selected);
+        if (m_currentNode != INVALID_NODE) { 
+            // De-selects currently selected node.
+            currentNode.selected = false;
         }
         // Current node has been set.
         m_currentNode = newVal;
-        currentNode.guiNode.addAttribute (Attribute.Selected);
+        currentNode.selected = true;
     }
     /**************************************************************************
      * Set the currently selected node by node pointer.
@@ -290,11 +289,16 @@ struct Node {
     Node [] children = [];
     Node * parent = null;
     uint nodeNumber = INVALID_NODE;
+    // NodeType type;
+    mixin createTrigger!(NodeType, `type`);
+    // string value;
+    mixin createTrigger!(string, `value`);
+    // bool selected;
+    mixin createTrigger!(bool, `selected`);
     @property GUINode * guiNode () { 
         assert (m_guiNode, `No guiNode, make sure to call Node.start`);
         return m_guiNode;
     }
-    @property NodeType type () { return m_type; }
     // A 'destructor'. Should be called before deleting this node.
     private void cleanUp () {
         foreach (ref child; this.children) {
@@ -312,11 +316,6 @@ struct Node {
         this.guiNode.remove;
     }
     private @property void guiNode (GUINode * newNode) { m_guiNode = newNode; }
-    private @property void value (string newValue) { 
-        m_value = newValue;
-        guiNode.text = newValue;
-    }
-    private @property auto ref value () { return m_value; }
     @disable this ();
     private this (Node * parent, string value, uint nodeNumber, NodeType type
     /**/ , Tab * tab) {
@@ -329,13 +328,15 @@ struct Node {
     }
     Tab             * tab       = null;
     private GUINode * m_guiNode = null;
-    private string    m_value   = null;
-    private NodeType  m_type;
+    import espukiide.memberinjector;
+
 
     private string toJSON () {
         import espukiide.stringhandler : escape;
         import std.algorithm.iteration : map, joiner;
         import std.conv : to;
+        pragma (msg, `TO DO: Change toJSON so that it uses std.json and `
+        /**/ ~ `escapes characters correctly.`);
         return
             `{
                 "type" : "` ~ this.type.to!string ~ `",

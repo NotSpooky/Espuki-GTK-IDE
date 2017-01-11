@@ -3,6 +3,8 @@ module espukiide.gui;
 import espukiide.stringhandler : _;
 
 enum defaultFilename = `newfile.es`;
+pragma (msg, `TO DO: If the default file is open but has no changes, opening `
+/**/ ~ `a new one should overwrite it.`);
 
 static struct GUI {
     /**************************************************************************
@@ -251,7 +253,6 @@ struct GUINode {
             import gtkc.gtktypes : GtkShadowType;
             this.frame.setShadowType (GtkShadowType.NONE);
         }
-        pragma (msg, `TO DO: Make frame change if the node type is changed.`);
         this.verticalBox.add (this.frame);
         createLabel (labelText);
         this.frame.add (m_label);
@@ -264,6 +265,9 @@ struct GUINode {
             GUI.currentCanvas.rootBox.add (this.verticalBox);
         }
         verticalBox.showAll;
+        this.node.valueTriggers ~= (n=> updateState);
+        this.node.typeTriggers ~= (n=> updateState);
+        this.node.selectedTriggers ~= (n=> updateState);
     }
 
     /**************************************************************************
@@ -365,40 +369,19 @@ private class Canvas : Layout {
     }
 }
 
-enum Attribute {Selected}
 mixin template NodeLabel () {
     import gtk.Box;
     void createLabel (string labelText) {
         import std.range    : repeat, take;
         import std.array    : array;
         import std.bitmanip : BitArray;
-        this.m_attributes // All initialized to false.
-        /**/ = BitArray (false.repeat.take(Attribute.max + 1).array);
-
         import gtk.Label;
         this.m_label = new Label (``);
-        this.text (labelText);
         this.m_label.setSelectable (true); // Allows copying their text.
     }
     import gtk.Label;
     private Label label;
     private string labelText;
-    void addAttribute (Attribute attribute) {
-        if (!m_attributes [attribute]) {
-            m_attributes [attribute] = true;
-            updateState;
-        }
-    }
-    void removeAttribute (Attribute attribute) {
-        if (m_attributes [attribute]) {
-            m_attributes [attribute] = false;
-            updateState;
-        }
-    }
-    @property void text (string newValue) {
-        rawText = newValue;
-        updateState;
-    }
     enum declarationColor = `#00657F`;
     /***************************************************************************
      * Updates the text output.
@@ -406,7 +389,7 @@ mixin template NodeLabel () {
      **************************************************************************/
     private void updateState () {
         string markup = ``;
-        if (m_attributes [Attribute.Selected]) {
+        if (this.node.selected) {
             markup ~= `weight='bold' `;
         }
         final switch (this.type) {
@@ -418,6 +401,7 @@ mixin template NodeLabel () {
                 break;
         }
         import glib.SimpleXML;
+        auto rawText = this.node.value;
         m_label.setMarkup (`<span ` ~ markup ~ `>` 
         /**/ ~ SimpleXML.markupEscapeText (rawText, rawText.length) 
         /**/ ~ `</span>`);
@@ -426,5 +410,4 @@ mixin template NodeLabel () {
     private BitArray m_attributes;
     import gtk.Label;
     private Label m_label;
-    string rawText; /// Without formatting.
 }
