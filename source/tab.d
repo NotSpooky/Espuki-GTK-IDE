@@ -121,11 +121,17 @@ struct Tab {
         }
     }
 
-    void saveFile (lazy string filename) {
-        // TO DO: Append espuki version.
+    void saveFile (lazy string filename, bool askFileAnyways) {
+        pragma (msg, `TO DO: Append espuki version to saved file.`);
         import std.stdio;
         import std.file : append, write;
-        absoluteFilePath = savedYet ? absoluteFilePath : filename;
+        if (askFileAnyways || !savedYet) { // Ask filename.
+            string fileToUse = filename;
+            if (!fileToUse) return; // User cancelled operation.
+            this.absoluteFilePath = fileToUse;
+        } else {
+            this.absoluteFilePath = absoluteFilePath; // Use same as before.
+        }
         savedYet = true;
         debug writeln (`Saving `, absoluteFilePath);
         absoluteFilePath.write (``); // Clears the file.
@@ -145,19 +151,19 @@ struct Tab {
         pragma (msg, `TO DO: When opening, open a new tab for the file.`);
         pragma (msg, `TO DO: Test NaN and non-ASCII JSON.`);
         import std.stdio;
-        debug writeln (`Opening`, filename);
+        debug writeln (`Opening `, filename);
         import std.json;
         import std.file : read;
         import std.conv : to;
         try {
+            // File format expects an array with the objects of the root nodes
+            // inside.
             JSONValue document = parseJSON (
             /**/ filename.read.to!string
             /**/ , -1 /* No depth checking */
             /**/ , JSONOptions.specialFloatLiterals );
-            
-            document.writeln;
-            // File format expects an array with the objects of the root nodes
-            // inside.
+            savedYet = true;
+            this.absoluteFilePath = filename;
             foreach (ref newRoot; document.array) {
                 this.fromJSON (newRoot, null /*No parent.*/);
             }
@@ -230,14 +236,15 @@ struct Tab {
         (*toDelete).cleanUp;
     }
 
-    string          m_absoluteFilePath = "newFile.es";
-    private bool      savedYet         = false;
-    private Node   [] rootNodes        = [];
+    string m_absoluteFilePath = "newFile.es";
+    bool   modifiedSinceSaved = false;
     Node * [uint] nodes;        /// All nodes, identified by a number.
-    private uint lastCount = 0; /// Used for assigning ids to new nodes.
-    @property private string absoluteFilePath () {
+    @property string absoluteFilePath () {
         return m_absoluteFilePath;
     }
+    private uint lastCount = 0; /// Used for assigning ids to new nodes.
+    private bool      savedYet           = false;
+    private Node   [] rootNodes          = [];
     @property private void absoluteFilePath (string newFilename) {
         m_absoluteFilePath = newFilename;
         import espukiide.gui;

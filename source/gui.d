@@ -2,7 +2,6 @@ module espukiide.gui;
 
 import espukiide.stringhandler : _;
 
-enum defaultFilename = `newfile.es`;
 pragma (msg, `TO DO: If the default file is open but has no changes, opening `
 /**/ ~ `a new one should overwrite it.`);
 
@@ -19,8 +18,6 @@ static struct GUI {
         import gtk.MainWindow;
         mainWindow = new MainWindow ("Espuki IDE");
         mainWindow.setDefaultSize (500, 500);
-        import espukiide.tab;
-        tabs ~= Tab ();
         // Accel group is used for global keybindings like Control-Q
         import gtk.AccelGroup;
         auto accelGroup = new AccelGroup ();
@@ -43,9 +40,16 @@ static struct GUI {
                 /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
                 fileMenu.append (openMenuIt);
                 MenuItem saveMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.saveCurrentFile))
+                /**/ (n=>tryFun!(GUI.saveCurrentFile)(false))
                 /**/ , `_Save`, ``, true, accelGroup, GdkKeysyms.GDK_S);
                 fileMenu.append (saveMenuIt);
+                import gtkc.gdktypes : GdkModifierType;
+                MenuItem saveAsMenuIt = new MenuItem (
+                /**/ (n=>tryFun!(GUI.saveCurrentFile)(true))
+                /**/ , `S_ave as`, ``, true, accelGroup, GdkKeysyms.GDK_S
+                /**/ , GdkModifierType.CONTROL_MASK
+                /**/ | GdkModifierType.SHIFT_MASK);
+                fileMenu.append (saveAsMenuIt);
                 MenuItem closeMenuIt = new MenuItem (
                 /**/ (n=>tryFun!(GUI.closeCurrentFile))
                 /**/ , `_Close file`, ``, true, accelGroup, GdkKeysyms.GDK_W);
@@ -62,12 +66,14 @@ static struct GUI {
             mainEntry.addOnActivate  (n => tryFun!(GUI.commandEntered) (n));
             mainBox.add (mainEntry);
             import gtk.Label;
-            mainOutput = new Label ("Start by typing a function name.");
+            mainOutput = new Label (_("Welcome"));
             mainBox.add (mainOutput);
             import gtk.Notebook;
             notebook = new Notebook ();
             mainBox.add (notebook);
-            notebook.appendPage (new Canvas (), defaultFilename);
+            import espukiide.tab;
+            tabs ~= Tab ();
+            notebook.appendPage (new Canvas (), tabs [0].absoluteFilePath);
         mainWindow.add (mainBox);
 
         // Starts the application.
@@ -92,16 +98,15 @@ static struct GUI {
             );
         }
     }
-    static void saveCurrentFile () {
-        pragma (msg, `TO DO: Ask when overwriting.`);
-        currentTab.saveFile (GUI.chooseFile!true);
+    static void saveCurrentFile (bool askFileAnyways) {
+        currentTab.saveFile (GUI.getFilename (true), askFileAnyways);
     }
 
     /// Opens or creates a file depending on the new parameter.
     static void openFile (bool newFile)() {
-        string filename = defaultFilename;
+        string filename = `newTab.es`;
         static if (!newFile) {
-            filename = GUI.chooseFile!false;
+            filename = GUI.getFilename (false);
             if (!filename) return;
         }
         try {
@@ -165,39 +170,7 @@ static struct GUI {
         label.setText ("");
     }
 
-    /**************************************************************************
-     * Params:
-     *      saving wether its saving (true) or opening files (false).
-     **************************************************************************/
-    static auto ref chooseFile (bool saving) () {
-        pragma (msg, `TO DO: Switch places between filechoosers OK and Cancel`);
-        import gtk.FileChooserDialog;
 
-        static if (saving) {
-            auto fileAction = FileChooserAction.SAVE;
-        } else {
-            auto fileAction = FileChooserAction.OPEN;
-        }
-        auto fileChooser = new FileChooserDialog (`Select file(s)`, mainWindow
-        /**/ , fileAction, [_(`Cancel`),_(`Ok`)] /*Button text*/
-        /**/ , [ResponseType.CANCEL, ResponseType.OK]);
-        fileChooser.run;
-        fileChooser.hide;
-        /+static if (saving) {+/
-        auto toRet = fileChooser.getFilename;
-        /+} else {
-            // Segfaults.
-            fileChooser.setSelectMultiple (true);
-            import glib.ListSG; // Singly-linked list.
-            import gobject.Value;
-            string [] toRet = [];
-            auto filenames = fileChooser.getFilenames.toArray!Value;
-            foreach (filename; filenames) {
-                toRet ~= filename.getString;
-            }
-        }+/
-        return toRet;
-    }
     
     @property private static auto ref currentTabPos () {
         import gtk.Notebook;
@@ -217,6 +190,33 @@ static struct GUI {
         /**/ )
         /**/ , newFilename);
         notebook.showAll;
+    }
+
+    /**************************************************************************
+     * Asks the user for a file.
+     **************************************************************************/
+    static string getFilename (bool saving) {
+        import gtk.FileChooserDialog;
+        auto fileAction = saving ? FileChooserAction.SAVE 
+        /**/ : FileChooserAction.OPEN;
+        FileChooserDialog dialogWindow = new FileChooserDialog (`Select file(s)`
+        /**/ , mainWindow , fileAction, [_(`Cancel`),_(`Ok`)] /*Button text*/
+        /**/ , [ResponseType.CANCEL, ResponseType.OK]);
+        dialogWindow.setDoOverwriteConfirmation (true);
+        dialogWindow.run;
+        dialogWindow.hide;
+        /+
+        // Segfaults. Tried allowing the selection of multiple files.
+        fileChooser.setSelectMultiple (true);
+        import glib.ListSG; // Singly-linked list.
+        import gobject.Value;
+        string [] toRet = [];
+        auto filenames = fileChooser.getFilenames.toArray!Value;
+        foreach (filename; filenames) {
+            toRet ~= filename.getString;
+        }
+        +/
+        return dialogWindow.getFilename;
     }
 }
 
@@ -309,7 +309,6 @@ struct GUINode {
         /**/ , boundingBox.y + (boundingBox.height)];
     }
 
-    
     /**************************************************************************
      * Utility function for bottomJoint and topJoint.
      **************************************************************************/
@@ -411,3 +410,5 @@ mixin template NodeLabel () {
     import gtk.Label;
     private Label m_label;
 }
+
+
