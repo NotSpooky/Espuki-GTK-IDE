@@ -1,6 +1,7 @@
 module espukiide.gui;
 
 import espukiide.stringhandler : _;
+enum defaultFilename = `newFile.es`;
 
 pragma (msg, `TO DO: If the default file is open but has no changes, opening `
 /**/ ~ `a new one should overwrite it.`);
@@ -72,8 +73,8 @@ static struct GUI {
             notebook = new Notebook ();
             mainBox.add (notebook);
             import espukiide.tab;
-            tabs ~= Tab ();
-            notebook.appendPage (new Canvas (), tabs [0].absoluteFilePath);
+            notebook.appendPage (new Canvas (), defaultFilename);
+            tabs ~= new Tab (defaultFilename);
         mainWindow.add (mainBox);
 
         // Starts the application.
@@ -104,25 +105,32 @@ static struct GUI {
 
     /// Opens or creates a file depending on the new parameter.
     static void openFile (bool newFile)() {
-        string filename = `newTab.es`;
-        static if (!newFile) {
-            filename = GUI.getFilename (false);
-            if (!filename) return;
-        }
         try {
-            auto index = notebook.appendPage (new Canvas (), filename);
+            import espukiide.tab;
+            static if (newFile) {
+                tabs ~= new Tab (defaultFilename);
+            } else { // Opening a file.
+                string absFilename = GUI.getFilename (false);
+                if (!absFilename) return;
+                tabs ~= new Tab (absFilename);
+            }
+            auto index = notebook.appendPage (new Canvas ()
+            /**/ , tabs [$-1].absoluteFilePath);
             // GTK limitation, child should be visible.
             notebook.showAll;
             notebook.setCurrentPage (index);
-            import espukiide.tab;
-            tabs ~= Tab ();
             static if (!newFile) {
-                currentTab.openFile (filename);
+                    tabs [$-1].openFile (absFilename);
             }
-        } catch (Exception e) {
+        } catch (Exception ex) {
             assert (tabs.length, `Just inserted a tab, it should exist.`);
             tabs = tabs [0 .. $-1];
-            throw e;
+            notebook.detachTab (
+            /**/ notebook.getNthPage (
+            /**  **/ notebook.getCurrentPage
+            /**/ )
+            );
+            throw ex;
         }
     }
 
@@ -170,8 +178,6 @@ static struct GUI {
         label.setText ("");
     }
 
-
-    
     @property private static auto ref currentTabPos () {
         import gtk.Notebook;
         auto currentPageNum = notebook.getCurrentPage;
@@ -220,110 +226,6 @@ static struct GUI {
     }
 }
 
-struct GUINode {
-    import gtk.Box;
-    Box verticalBox = null; /// Contains this entire node.
-    Frame frame     = null; /// Contains this nodes data.
-    Box childBox    = null; /// Contains this nodes children.
-    import gtk.Frame;
-    
-    mixin NodeLabel;
-    @disable this ();
-    /**************************************************************************
-     *
-     * Params:
-     *      labelText = Text to display.
-     *      node  = Controller node that contains the logic of this graphical
-     *            node.
-     **************************************************************************/
-    this (string labelText, Node * node) {
-        assert (node, `There should be a node`);
-        this.verticalBox = new Box (Orientation.VERTICAL  , /*Spacing*/ 10);
-        import gtkc.gtktypes : GtkAlign;
-        this.verticalBox.setHalign (GtkAlign.FILL);
-        this.childBox    = new Box (Orientation.HORIZONTAL, /*Spacing*/ 10);
-        this.childBox.setHalign (GtkAlign.CENTER);
-        this.node = node;
-        import std.conv : to;
-        import gtk.Frame;
-        this.frame = new Frame (node.nodeNumber.to!string);
-        this.frame.setHalign (GtkAlign.FILL);
-        import espukiide.tab : Node, NodeType;
-        if (node.type == NodeType.Declaration) {
-            import gtkc.gtktypes : GtkShadowType;
-            this.frame.setShadowType (GtkShadowType.NONE);
-        }
-        this.verticalBox.add (this.frame);
-        createLabel (labelText);
-        this.frame.add (m_label);
-        this.verticalBox.add (this.childBox);
-        if (parent) {
-            // This box is added to the childBox of the parent.
-            parent.childBox.add (this.verticalBox);
-        } else {
-            // Root node.
-            GUI.currentCanvas.rootBox.add (this.verticalBox);
-        }
-        verticalBox.showAll;
-        this.node.valueTriggers ~= (n=> updateState);
-        this.node.typeTriggers ~= (n=> updateState);
-        this.node.selectedTriggers ~= (n=> updateState);
-    }
-
-    /**************************************************************************
-     * Deletes this widgets contents.
-     **************************************************************************/
-    void remove () {
-        this.verticalBox.destroy;
-        this.verticalBox = null;
-        this.childBox    = null;
-        this.node        = null;
-        this.frame       = null;
-    }
-    
-    /**************************************************************************
-     * Returns the GUINode of the parent.
-     * Null if it doesn't exist.
-     **************************************************************************/
-    @property GUINode * parent () {
-        assert (this.node);
-        return node.parent ? node.parent.guiNode : null;
-    }
-
-    @property auto ref type () {
-        return this.node.type;
-    }
-
-    /**************************************************************************
-     * Returns the x and y positions of the middle of the frame at the top
-     **************************************************************************/
-    @property auto ref topJoint () {
-        return [boundingBox.x + (boundingBox.width / 2.0), boundingBox.y];
-    }
-
-    /**************************************************************************
-     * Returns the x and y positions of the middle of the frame at the bottom.
-     **************************************************************************/
-    @property auto ref bottomJoint () {
-        return [boundingBox.x + (boundingBox.width / 2.0)
-        /**/ , boundingBox.y + (boundingBox.height)];
-    }
-
-    /**************************************************************************
-     * Utility function for bottomJoint and topJoint.
-     **************************************************************************/
-    private auto ref boundingBox () {
-        import gtkc.gdktypes : GdkRectangle;
-        GdkRectangle toRet;
-        // Uses an out parameter to return.
-        this.frame.getAllocation (toRet);
-        return toRet;
-    }
-
-    import espukiide.tab : Node;
-    private Node * node = null;    /// Controller counterpart.
-}
-
 import gtk.Layout;
 private class Canvas : Layout {
     import gtk.Box;
@@ -367,48 +269,3 @@ private class Canvas : Layout {
         return false; // Allows the widgets on the Layout to be rendered.
     }
 }
-
-mixin template NodeLabel () {
-    import gtk.Box;
-    void createLabel (string labelText) {
-        import std.range    : repeat, take;
-        import std.array    : array;
-        import std.bitmanip : BitArray;
-        import gtk.Label;
-        this.m_label = new Label (``);
-        this.m_label.setSelectable (true); // Allows copying their text.
-    }
-    import gtk.Label;
-    private Label label;
-    private string labelText;
-    enum declarationColor = `#00657F`;
-    /***************************************************************************
-     * Updates the text output.
-     * Should be called whenever there's some change to it.
-     **************************************************************************/
-    private void updateState () {
-        string markup = ``;
-        if (this.node.selected) {
-            markup ~= `weight='bold' `;
-        }
-        final switch (this.type) {
-            import espukiide.tab : NodeType;
-            case NodeType.Expression: // Use default.
-                break;
-            case NodeType.Declaration:
-                markup ~= `size='x-large' color='` ~ declarationColor ~ `'`;
-                break;
-        }
-        import glib.SimpleXML;
-        auto rawText = this.node.value;
-        m_label.setMarkup (`<span ` ~ markup ~ `>` 
-        /**/ ~ SimpleXML.markupEscapeText (rawText, rawText.length) 
-        /**/ ~ `</span>`);
-    }
-    import std.bitmanip : BitArray;
-    private BitArray m_attributes;
-    import gtk.Label;
-    private Label m_label;
-}
-
-

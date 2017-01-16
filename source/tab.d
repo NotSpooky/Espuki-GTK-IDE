@@ -1,7 +1,9 @@
 module espukiide.tab;
 
-private enum INVALID_NODE = -1; /// Used to test whether a node has been set.
-struct Tab {
+class Tab {
+    this (string filename) {
+        this.absoluteFilePath = filename;
+    }
     void parseCommand (string command) {
         import pegged.grammar;
         mixin (grammar (
@@ -137,10 +139,11 @@ struct Tab {
         absoluteFilePath.write (``); // Clears the file.
         import std.algorithm.iteration : joiner, map;
         import std.conv : to;
+        import espukiide.node : Node;
         absoluteFilePath.append ( 
             `[` ~
             rootNodes
-            .map!(n=>n.toJSON)
+            .map!(n=>n.controllerNode.toJSON)
             .joiner(`, `)
             .to!string
              ~ `]`
@@ -148,7 +151,6 @@ struct Tab {
     }
     
     void openFile (string filename) {
-        pragma (msg, `TO DO: When opening, open a new tab for the file.`);
         pragma (msg, `TO DO: Test NaN and non-ASCII JSON.`);
         import std.stdio;
         debug writeln (`Opening `, filename);
@@ -165,7 +167,7 @@ struct Tab {
             savedYet = true;
             this.absoluteFilePath = filename;
             foreach (ref newRoot; document.array) {
-                this.fromJSON (newRoot, null /*No parent.*/);
+                this.fromJSON (newRoot, null /* No parent */);
             }
         }
         catch (JSONException e) {
@@ -173,7 +175,8 @@ struct Tab {
         }
     }
     import std.json : JSONValue;
-    private void fromJSON (JSONValue jValue, Node * parent) {
+    import espukiide.node : Node;
+    private void fromJSON (JSONValue jValue, Node parent) {
         import std.json;
         import std.conv : to;
         auto newNode = this.addNode (parent, jValue [`value`].str
@@ -190,21 +193,22 @@ struct Tab {
     private void createRootNode (string value) {
         this.addNode (null /* No parent */, value, NodeType.Declaration);
     }
+    import espukiide.node : NodeType;
     /// All new nodes should be created with this.
-    private auto ref addNode (Node * parent, string label, NodeType type) {
-        Node * insertedNode = null;
+    private auto ref addNode (Node parent, string label, NodeType type) {
+        Node insertedNode = null;
+        static import espukiide.node;
         if (parent) {
-            parent.children ~= Node (parent, label, lastCount, type, &this);
-            insertedNode = &parent.children [$-1];
+            parent.children  ~= espukiide.node.addNode (label, this, lastCount
+            /**/ , parent, type);
+            insertedNode = parent.children [$-1];
         } else { // Root node.
             assert (type == NodeType.Declaration
             /**/ , `Root nodes should be function declarations.`);
-            rootNodes ~= Node (parent, label, lastCount, type, &this);
-            insertedNode = &rootNodes [$-1];
+            rootNodes ~= espukiide.node.addNode (label, this, lastCount, parent
+            /**/ , type);
+            insertedNode = rootNodes [$-1];
         }
-        // Cannot assign &this in the constructor.
-        import espukiide.gui : GUINode;
-        insertedNode.guiNode = new GUINode (label, insertedNode);
         nodes [lastCount] = insertedNode;
         currentNode = lastCount;
         lastCount ++;
@@ -217,7 +221,7 @@ struct Tab {
         enforce (toDelete, `Node ` ~ nodeNumber.to!string ~ ` doesn't exist.`);
         // Should delete from rootNodes
         import std.algorithm.searching : countUntil;
-        auto nodeToDel = rootNodes.countUntil!((ref a) => &a == *toDelete);
+        auto nodeToDel = rootNodes.countUntil!((ref a) => a == *toDelete);
         if (nodeToDel != -1) { // Is in root nodes.
             import std.algorithm.mutation : remove;
             rootNodes = rootNodes.remove (nodeToDel);
@@ -233,12 +237,12 @@ struct Tab {
         }
         nodes.remove (nodeNumber);
         // Node should clean itself and its children.
-        (*toDelete).cleanUp;
+        (*toDelete).controllerNode.controllerDestructor;
     }
 
     string m_absoluteFilePath = "newFile.es";
     bool   modifiedSinceSaved = false;
-    Node * [uint] nodes;        /// All nodes, identified by a number.
+    Node [uint] nodes;          /// All nodes, identified by a number.
     @property string absoluteFilePath () {
         return m_absoluteFilePath;
     }
@@ -253,13 +257,13 @@ struct Tab {
     /**************************************************************************
      * Get currently selected node.
      **************************************************************************/
-    @property private Node * currentNode () {
+    @property private Node currentNode () {
         auto toRet = m_currentNode in nodes;
         import std.exception : enforce;
         import std.conv : to;
         enforce (toRet, `Tried accessing a non-existent node: `
         /**/ ~ m_currentNode.to!string);
-        return * toRet;
+        return *toRet;
     }
     /**************************************************************************
      * Set the currently selected node by index in nodes.
@@ -283,62 +287,52 @@ struct Tab {
     /**************************************************************************
      * Set the currently selected node by node pointer.
      **************************************************************************/
-    @property private void currentNode (Node * newVal) {
+    @property private void currentNode (Node newVal) {
         this.currentNode = newVal.nodeNumber;
     }
+    import espukiide.node : INVALID_NODE;
     private uint m_currentNode = INVALID_NODE;
 }
 
-enum NodeType { Declaration, Expression }
-struct Node {
+class ControllerNode {
     // All node construction should be made with addNode;
-    import espukiide.gui : GUINode;
-    Node [] children = [];
-    Node * parent = null;
-    uint nodeNumber = INVALID_NODE;
-    // NodeType type;
-    mixin createTrigger!(NodeType, `type`);
-    // string value;
-    mixin createTrigger!(string, `value`);
-    // bool selected;
-    mixin createTrigger!(bool, `selected`);
-    @property GUINode * guiNode () { 
-        assert (m_guiNode, `No guiNode, make sure to call Node.start`);
-        return m_guiNode;
+    import espukiide.node : Node;
+    this (Node node) {
+        this.node = node;
     }
     // A 'destructor'. Should be called before deleting this node.
-    private void cleanUp () {
-        foreach (ref child; this.children) {
+    void controllerDestructor () {
+        foreach (ref child; this.node.children) {
             // Should delete children before this node.
             tab.deleteNode (child.nodeNumber);
         }
-        if (this.parent) {
+        if (this.node.parent) {
             import std.algorithm.searching : countUntil;
-            auto pos = parent.children.countUntil!(a => a == this);
+            auto pos = 
+                this
+                .node
+                .parent
+                .children
+                .countUntil!(a => a.controllerNode == this);
             assert (pos != -1);
+            // Remove from the children array.
             import std.algorithm.mutation : remove;
-            parent.children = parent.children.remove (pos);
+            this
+                .node
+                .parent
+                .children = 
+                this
+                .node
+                .parent
+                .children
+                .remove (pos);
         }
-        // Should also clean up the GUI.
-        this.guiNode.remove;
     }
-    private @property void guiNode (GUINode * newNode) { m_guiNode = newNode; }
-    @disable this ();
-    private this (Node * parent, string value, uint nodeNumber, NodeType type
-    /**/ , Tab * tab) {
-        this.parent     = parent;
-        this.children   = [];
-        this.m_value    = value;
-        this.nodeNumber = nodeNumber;
-        this.m_type     = type;
-        this.tab        = tab;
-    }
-    Tab             * tab       = null;
-    private GUINode * m_guiNode = null;
+    Tab * tab       = null;
     import espukiide.memberinjector;
 
 
-    private string toJSON () {
+    string toJSON () {
         import espukiide.stringhandler : escape;
         import std.algorithm.iteration : map, joiner;
         import std.conv : to;
@@ -346,12 +340,14 @@ struct Node {
         /**/ ~ `escapes characters correctly.`);
         return
             `{
-                "type" : "` ~ this.type.to!string ~ `",
-                "value" : "` ~ this.value.escape ~ `" `
-                 ~ (children.length ? `
+                "type" : "` ~ this.node.type.to!string ~ `",
+                "value" : "` ~ this.node.value.escape ~ `" `
+                 ~ (this.node.children.length ? `
                     , "children" : [` ~
-                        this.children
-                            .map! (n=>n.toJSON)
+                        this
+                            .node
+                            .children
+                            .map! (n=>n.controllerNode.toJSON)
                             .joiner (`, `)
                             .to!string
                     ~ `] ` 
@@ -359,4 +355,5 @@ struct Node {
                     ) ~ `
             }`;
     }
+    private Node node = null;
 }
