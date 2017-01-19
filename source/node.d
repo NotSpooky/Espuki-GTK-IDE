@@ -4,8 +4,6 @@ import espukiide.tab : Tab;
 Node addNode (string value, Tab tab, uint nodeNumber, Node parent
 /**/ , NodeType type) {
     auto toReturn = new Node (value, tab, nodeNumber, parent, type);
-    import espukiide.tab : ControllerNode;
-    toReturn.m_controllerNode = new ControllerNode (toReturn);
     import espukiide.guinode : GUINode;
     toReturn.m_guiNode = new GUINode (toReturn);
     return toReturn;
@@ -16,6 +14,7 @@ class Node {
     @disable this ();
     private this (string value, Tab tab, uint nodeNumber, Node parent
     /**/ , NodeType type) {
+        this.deleted    = false;
         this.value      = value;
         this.nodeNumber = nodeNumber;
         this.type       = type;
@@ -32,23 +31,70 @@ class Node {
     // bool selected;
     mixin createTrigger!(bool,    `selected`);
     // string value;
-    mixin createTrigger!(string,     `value`);
+    mixin createTrigger!(string,   `value`   );
     // NodeType type;
-    mixin createTrigger!(NodeType,    `type`);
+    mixin createTrigger!(NodeType, `type`    );
     // Node [] children;
-    mixin createTrigger!(Node [], `children`);
-    import espukiide.tab : Tab, ControllerNode;
-    Tab tab                                 = null;
-    @property auto ref controllerNode () {
-        return m_controllerNode;
-    }
+    mixin createTrigger!(Node [],  `children`);
+    // bool deleted; /// Whether this node should be deleted already.
+    mixin createTrigger!(bool,     `deleted` );
+    import espukiide.tab : Tab;
+    Tab tab = null;
+
     @property auto ref guiNode () {
         return m_guiNode;
     }
-    private ControllerNode m_controllerNode = null;
+    string toJSON () {
+        import espukiide.stringhandler : escape;
+        import std.algorithm.iteration : map, joiner;
+        import std.conv : to;
+        pragma (msg, `TO DO: Change toJSON so that it uses std.json and `
+        /**/ ~ `escapes characters correctly.`);
+        return
+            `{
+                "type" : "` ~ this.type.to!string ~ `",
+                "value" : "` ~ this.value.escape ~ `" `
+                 ~ (this.children.length ? `
+                    , "children" : [` ~
+                        this
+                            .children
+                            .map! (n=>n.toJSON)
+                            .joiner (`, `)
+                            .to!string
+                    ~ `] ` 
+                    : `` // No children, no need for children attribute.
+                    ) ~ `
+            }`;
+    }
+    // A 'destructor'. Should be called before deleting this node.
+    void controllerDestructor () {
+        this.deleted = true;
+        foreach (ref child; this.children) {
+            // Should delete children before this node.
+            this.tab.deleteNode (child.nodeNumber);
+        }
+        if (this.parent) {
+            import std.algorithm.searching : countUntil;
+            auto pos = 
+                this
+                .parent
+                .children
+                .countUntil!(a => a == this);
+            assert (pos != -1);
+            // Remove from the children array.
+            import std.algorithm.mutation : remove;
+            this
+                .parent
+                .children = 
+                this
+                .parent
+                .children
+                .remove (pos);
+        }
+    }
     import espukiide.guinode : GUINode;
     private GUINode m_guiNode               = null;
 }
 
 enum NodeType { Declaration, Expression }
-private enum INVALID_NODE = -1; /// Used to test whether a node has been set.
+enum INVALID_NODE = -1; /// Used to test whether a node has been set.

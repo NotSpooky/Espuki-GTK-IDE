@@ -1,8 +1,10 @@
 module espukiide.tab;
 
+enum defaultFilename = `newFile.es`;
 class Tab {
-    this (string filename) {
-        this.absoluteFilePath = filename;
+    @disable this ();
+    this (string absoluteFilePath = defaultFilename) {
+        this.absoluteFilePath = absoluteFilePath;
     }
     void parseCommand (string command) {
         import pegged.grammar;
@@ -123,6 +125,59 @@ class Tab {
         }
     }
 
+    pragma (msg, `TO DO: Change createRootNode into addRootNode`);
+    private void createRootNode (string value) {
+        this.addNode (null /* No parent */, value, NodeType.Declaration);
+    }
+
+    import espukiide.node : NodeType, Node;
+    /// All new nodes should be created with this.
+    private auto ref addNode (Node parent, string label, NodeType type) {
+        Node insertedNode = null;
+        static import espukiide.node;
+        if (parent) {
+            parent.children  ~= espukiide.node.addNode (label, this, lastCount
+            /**/ , parent, type);
+            insertedNode = parent.children [$-1];
+        } else { // Root node.
+            assert (type == NodeType.Declaration
+            /**/ , `Root nodes should be function declarations.`);
+            rootNodes ~= espukiide.node.addNode (label, this, lastCount, parent
+            /**/ , type);
+            insertedNode = rootNodes [$-1];
+        }
+        nodes [lastCount] = insertedNode;
+        currentNode = lastCount;
+        lastCount ++;
+        return insertedNode;
+    }
+
+    void deleteNode (uint nodeNumber) {
+        auto toDelete = nodeNumber in nodes;
+        import std.conv : to;
+        import std.exception : enforce;
+        enforce (toDelete, `Node ` ~ nodeNumber.to!string ~ ` doesn't exist.`);
+        // Should delete from rootNodes
+        import std.algorithm.searching : countUntil;
+        auto nodeToDel = rootNodes.countUntil!((ref a) => a == *toDelete);
+        if (nodeToDel != -1) { // Is in root nodes.
+            import std.algorithm.mutation : remove;
+            rootNodes = rootNodes.remove (nodeToDel);
+        }
+        // Should change currentNode if it's the deleted node.
+        if (*toDelete == currentNode) { // Current node is changed.
+            if (nodes.length > 1) {
+                currentNode = (*toDelete).nodeNumber == nodes.keys [0] ? 
+                /**/ nodes.keys [1] : nodes.keys [0];
+            } else { // No nodes after this one.
+                currentNode = INVALID_NODE;
+            }
+        }
+        nodes.remove (nodeNumber);
+        // Node should clean itself and its children.
+        (*toDelete).controllerDestructor;
+    }
+
     void saveFile (lazy string filename, bool askFileAnyways) {
         pragma (msg, `TO DO: Append espuki version to saved file.`);
         import std.stdio;
@@ -131,25 +186,25 @@ class Tab {
             string fileToUse = filename;
             if (!fileToUse) return; // User cancelled operation.
             this.absoluteFilePath = fileToUse;
-        } else {
-            this.absoluteFilePath = absoluteFilePath; // Use same as before.
         }
         savedYet = true;
-        debug writeln (`Saving `, absoluteFilePath);
-        absoluteFilePath.write (``); // Clears the file.
+        debug writeln (`Saving `, this.absoluteFilePath);
+        this.absoluteFilePath.write (``); // Clears the file.
         import std.algorithm.iteration : joiner, map;
         import std.conv : to;
         import espukiide.node : Node;
-        absoluteFilePath.append ( 
+        this.absoluteFilePath.append ( 
             `[` ~
             rootNodes
-            .map!(n=>n.controllerNode.toJSON)
+            .map!(n=>n.toJSON)
             .joiner(`, `)
             .to!string
              ~ `]`
         );
     }
-    
+
+    /// Params:
+    ///     filename = absolute file path of the opened file.
     void openFile (string filename) {
         pragma (msg, `TO DO: Test NaN and non-ASCII JSON.`);
         import std.stdio;
@@ -174,8 +229,8 @@ class Tab {
             throw new JSONException (`Error reading file: ` ~ e.msg);
         }
     }
+
     import std.json : JSONValue;
-    import espukiide.node : Node;
     private void fromJSON (JSONValue jValue, Node parent) {
         import std.json;
         import std.conv : to;
@@ -189,71 +244,6 @@ class Tab {
         }
     }
 
-    pragma (msg, `TO DO: Change createRootNode into addRootNode`);
-    private void createRootNode (string value) {
-        this.addNode (null /* No parent */, value, NodeType.Declaration);
-    }
-    import espukiide.node : NodeType;
-    /// All new nodes should be created with this.
-    private auto ref addNode (Node parent, string label, NodeType type) {
-        Node insertedNode = null;
-        static import espukiide.node;
-        if (parent) {
-            parent.children  ~= espukiide.node.addNode (label, this, lastCount
-            /**/ , parent, type);
-            insertedNode = parent.children [$-1];
-        } else { // Root node.
-            assert (type == NodeType.Declaration
-            /**/ , `Root nodes should be function declarations.`);
-            rootNodes ~= espukiide.node.addNode (label, this, lastCount, parent
-            /**/ , type);
-            insertedNode = rootNodes [$-1];
-        }
-        nodes [lastCount] = insertedNode;
-        currentNode = lastCount;
-        lastCount ++;
-        return insertedNode;
-    }
-    void deleteNode (uint nodeNumber) {
-        auto toDelete = nodeNumber in nodes;
-        import std.conv : to;
-        import std.exception : enforce;
-        enforce (toDelete, `Node ` ~ nodeNumber.to!string ~ ` doesn't exist.`);
-        // Should delete from rootNodes
-        import std.algorithm.searching : countUntil;
-        auto nodeToDel = rootNodes.countUntil!((ref a) => a == *toDelete);
-        if (nodeToDel != -1) { // Is in root nodes.
-            import std.algorithm.mutation : remove;
-            rootNodes = rootNodes.remove (nodeToDel);
-        }
-        // Should change currentNode if it's the deleted node.
-        if (*toDelete == currentNode) { // Current node is changed.
-            if (nodes.length > 1) {
-                currentNode = (*toDelete).nodeNumber == nodes.keys [0] ? 
-                /**/ nodes.keys [1] : nodes.keys [0];
-            } else { // No nodes after this one.
-                currentNode = INVALID_NODE;
-            }
-        }
-        nodes.remove (nodeNumber);
-        // Node should clean itself and its children.
-        (*toDelete).controllerNode.controllerDestructor;
-    }
-
-    string m_absoluteFilePath = "newFile.es";
-    bool   modifiedSinceSaved = false;
-    Node [uint] nodes;          /// All nodes, identified by a number.
-    @property string absoluteFilePath () {
-        return m_absoluteFilePath;
-    }
-    private uint lastCount = 0; /// Used for assigning ids to new nodes.
-    private bool      savedYet           = false;
-    private Node   [] rootNodes          = [];
-    @property private void absoluteFilePath (string newFilename) {
-        m_absoluteFilePath = newFilename;
-        import espukiide.gui;
-        GUI.filename = m_absoluteFilePath;
-    } 
     /**************************************************************************
      * Get currently selected node.
      **************************************************************************/
@@ -290,70 +280,19 @@ class Tab {
     @property private void currentNode (Node newVal) {
         this.currentNode = newVal.nodeNumber;
     }
+
+    Node [uint] nodes; /// All nodes, identified by a number.
+    bool modifiedSinceSaved = false; /// If true, should ask when exiting or
+                                     /// compiling.
+    import espukiide.memberinjector;
+    // string absoluteFilePath; /// Filename of the file opened in this tab.
+    mixin createTrigger!(string, `absoluteFilePath`);
+
+    private uint lastCount     = 0;     /// Used for assigning ids to new nodes.
+    private Node [] rootNodes  = [];    /// Nodes without parent.
+    private bool      savedYet = false; /// False in new files until saved.
+                                        /// true in opened files.
     import espukiide.node : INVALID_NODE;
     private uint m_currentNode = INVALID_NODE;
-}
 
-class ControllerNode {
-    // All node construction should be made with addNode;
-    import espukiide.node : Node;
-    this (Node node) {
-        this.node = node;
-    }
-    // A 'destructor'. Should be called before deleting this node.
-    void controllerDestructor () {
-        foreach (ref child; this.node.children) {
-            // Should delete children before this node.
-            tab.deleteNode (child.nodeNumber);
-        }
-        if (this.node.parent) {
-            import std.algorithm.searching : countUntil;
-            auto pos = 
-                this
-                .node
-                .parent
-                .children
-                .countUntil!(a => a.controllerNode == this);
-            assert (pos != -1);
-            // Remove from the children array.
-            import std.algorithm.mutation : remove;
-            this
-                .node
-                .parent
-                .children = 
-                this
-                .node
-                .parent
-                .children
-                .remove (pos);
-        }
-    }
-    Tab * tab       = null;
-    import espukiide.memberinjector;
-
-
-    string toJSON () {
-        import espukiide.stringhandler : escape;
-        import std.algorithm.iteration : map, joiner;
-        import std.conv : to;
-        pragma (msg, `TO DO: Change toJSON so that it uses std.json and `
-        /**/ ~ `escapes characters correctly.`);
-        return
-            `{
-                "type" : "` ~ this.node.type.to!string ~ `",
-                "value" : "` ~ this.node.value.escape ~ `" `
-                 ~ (this.node.children.length ? `
-                    , "children" : [` ~
-                        this
-                            .node
-                            .children
-                            .map! (n=>n.controllerNode.toJSON)
-                            .joiner (`, `)
-                            .to!string
-                    ~ `] ` 
-                    : `` // No children, no need for children attribute.
-                    ) ~ `
-            }`;
-    }
-    private Node node = null;
 }

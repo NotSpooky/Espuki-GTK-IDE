@@ -1,7 +1,6 @@
 module espukiide.gui;
 
 import espukiide.stringhandler : _;
-enum defaultFilename = `newFile.es`;
 
 pragma (msg, `TO DO: If the default file is open but has no changes, opening `
 /**/ ~ `a new one should overwrite it.`);
@@ -72,7 +71,7 @@ static struct GUI {
             import gtk.Notebook;
             notebook = new Notebook ();
             mainBox.add (notebook);
-            import espukiide.tab;
+            import espukiide.tab : Tab, defaultFilename;
             notebook.appendPage (new Canvas (), defaultFilename);
             tabs ~= new Tab (defaultFilename);
         mainWindow.add (mainBox);
@@ -81,6 +80,18 @@ static struct GUI {
         mainWindow.showAll();
         Main.run();
     }
+    
+    import gtk.Notebook;
+    static Notebook notebook     = null; /// Contains the tabs.
+    import gtk.Entry;
+    static Entry mainEntry       = null; /// Text input.
+    import gtk.Label;
+    static Label mainOutput      = null; /// Shows messages and errors.
+    import gtk.MainWindow;
+    static MainWindow mainWindow = null;
+    import espukiide.tab : Tab;
+    static Tab [] tabs    = [];
+
     /**************************************************************************
      * Tries executing fun with args as arguments.
      * Any exception thrown has its error shown on mainOutput.
@@ -106,7 +117,7 @@ static struct GUI {
     /// Opens or creates a file depending on the new parameter.
     static void openFile (bool newFile)() {
         try {
-            import espukiide.tab;
+            import espukiide.tab : Tab, defaultFilename;
             static if (newFile) {
                 tabs ~= new Tab (defaultFilename);
             } else { // Opening a file.
@@ -150,16 +161,7 @@ static struct GUI {
         }
     }
     
-    import gtk.Notebook;
-    static Notebook notebook     = null; /// Contains the tabs.
-    import gtk.Entry;
-    static Entry mainEntry       = null; /// Text input.
-    import gtk.Label;
-    static Label mainOutput      = null; /// Shows messages and errors.
-    import gtk.MainWindow;
-    static MainWindow mainWindow = null;
-    import espukiide.tab;
-    static Tab [] tabs    = [];
+
     @property static Canvas currentCanvas () {
         return cast (Canvas) notebook.getNthPage (notebook.getCurrentPage);
     }
@@ -172,7 +174,6 @@ static struct GUI {
             import std.stdio;
             writeln ("Command: ", command);
         }
-        import espukiide.tab;
         currentTab.parseCommand (command);
         mainOutput.setText ("");
         label.setText ("");

@@ -36,13 +36,22 @@ class GUINode {
         this.node.valueTriggers    ~= (n=> updateState);
         this.node.typeTriggers     ~= (n=> updateState);
         this.node.selectedTriggers ~= (n=> updateState);
+        this.node.deletedTriggers  ~= (n=> GUIDestructor (n));
         this.updateState;
     }
+
+    import gtk.Box;
+    Box verticalBox = null; /// Contains this entire node.
+    Frame frame     = null; /// Contains this nodes data.
+    Box childBox    = null; /// Contains this nodes children.
+    import gtk.Frame;
+    mixin NodeLabel;
 
     /**************************************************************************
      * Deletes this widgets contents.
      **************************************************************************/
-    void GUIDestructor () {
+    void GUIDestructor (bool deletedValue) {
+        assert (deletedValue, `node's deleted should only change to true`);
         this.verticalBox.destroy;
         this.verticalBox = null;
         this.childBox    = null;
@@ -74,12 +83,7 @@ class GUINode {
         this.frame.getAllocation (toRet);
         return toRet;
     }
-    import gtk.Box;
-    Box verticalBox = null; /// Contains this entire node.
-    Frame frame     = null; /// Contains this nodes data.
-    Box childBox    = null; /// Contains this nodes children.
-    import gtk.Frame;
-    mixin NodeLabel;
+
     import espukiide.node;
     private Node node = null;
 }

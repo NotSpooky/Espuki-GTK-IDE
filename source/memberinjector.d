@@ -1,5 +1,9 @@
 module espukiide.memberinjector;
 
+/// Used for creating variables that have database-like triggers.
+/// They are delegates stored in an array called varNameTriggers.
+/// When importing this module, selective imports shouldn't be used.
+
 mixin template createTrigger (Type, string name) {
     enum typeStr = Type.stringof;
     enum string privateVarName = `m_` ~ name;
