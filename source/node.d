@@ -14,7 +14,6 @@ class Node {
     }
     Node parent;
     NodeType type;
-    bool selected;
     uint nodeNumber;
     import espukiide.memberinjector;
     // bool selected;
