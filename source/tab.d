@@ -96,7 +96,7 @@ class Tab {
                         /**/ , match.matches [2] /*Value*/
                         /**/ , NodeType.Expression);
                     } else { // No nodes, should create a new node.
-                        createRootNode (match.matches [2]);
+                        addRootNode (match.matches [2]);
                     }
                 } else if (following.name == `Command.DeleteNode`) {
                     enforce (selectedNode != INVALID_NODE, `No node to delete`);
@@ -109,12 +109,12 @@ class Tab {
                             this.currentNode.value = following.matches [0];
                         }
                     } else { // There's no current node. Create a root one.
-                        createRootNode (following.matches [0]);
+                        addRootNode (following.matches [0]);
                     }
                 } else { assert (0, `Unexpected command.`);}
                 break;
             case `Command.CreateRoot`:
-                createRootNode (match.children [1].matches [0]);
+                addRootNode (match.children [1].matches [0]);
                 break;
             case `Command.Empty`:        // Do nothing.
                 break;
@@ -125,8 +125,7 @@ class Tab {
         }
     }
 
-    pragma (msg, `TO DO: Change createRootNode into addRootNode`);
-    private void createRootNode (string value) {
+    private void addRootNode (string value) {
         this.addNode (null /* No parent */, value, NodeType.Declaration);
     }
 
