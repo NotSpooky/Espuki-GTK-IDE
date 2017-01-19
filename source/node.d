@@ -1,27 +1,16 @@
 module espukiide.node;
 
-import espukiide.tab : Tab;
-Node addNode (string value, Tab tab, uint nodeNumber, Node parent
-/**/ , NodeType type) {
-    auto toReturn = new Node (value, tab, nodeNumber, parent, type);
-    import espukiide.guinode : GUINode;
-    toReturn.m_guiNode = new GUINode (toReturn);
-    return toReturn;
-    pragma (msg, `TO DO: Test without addNode, but using constructor.`);
-}
 
 class Node {
     @disable this ();
-    private this (string value, Tab tab, uint nodeNumber, Node parent
-    /**/ , NodeType type) {
+    this (string value, Tab tab, uint nodeNumber, Node parent, NodeType type) {
         this.deleted    = false;
         this.value      = value;
         this.nodeNumber = nodeNumber;
         this.type       = type;
         this.tab        = tab;
         this.parent     = parent;
-        // Cannot assign this in constructor, so must use addNode to call this
-        // constructor.
+        this.m_guiNode  = new GUINode (this);
     }
     Node parent;
     NodeType type;

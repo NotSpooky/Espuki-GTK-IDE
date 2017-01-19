@@ -134,16 +134,14 @@ class Tab {
     /// All new nodes should be created with this.
     private auto ref addNode (Node parent, string label, NodeType type) {
         Node insertedNode = null;
-        static import espukiide.node;
+        import espukiide.node : Node;
         if (parent) {
-            parent.children  ~= espukiide.node.addNode (label, this, lastCount
-            /**/ , parent, type);
+            parent.children ~= new Node (label, this, lastCount, parent, type);
             insertedNode = parent.children [$-1];
         } else { // Root node.
             assert (type == NodeType.Declaration
             /**/ , `Root nodes should be function declarations.`);
-            rootNodes ~= espukiide.node.addNode (label, this, lastCount, parent
-            /**/ , type);
+            rootNodes ~= new Node (label, this, lastCount, parent, type);
             insertedNode = rootNodes [$-1];
         }
         nodes [lastCount] = insertedNode;
