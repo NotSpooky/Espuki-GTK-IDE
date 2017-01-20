@@ -200,12 +200,12 @@ class Tab {
         );
     }
 
-    /// Params:
-    ///     filename = absolute file path of the opened file.
+    /**************************************************************************
+    * Params:
+    *   filename = absolute file path of the opened file.
+    ***************************************************************************/
     void openFile (string filename) {
         pragma (msg, `TO DO: Test NaN and non-ASCII JSON.`);
-        import std.stdio;
-        debug writeln (`Opening `, filename);
         import std.json;
         import std.file : read;
         import std.conv : to;
@@ -215,7 +215,7 @@ class Tab {
             JSONValue document = parseJSON (
             /**/ filename.read.to!string
             /**/ , -1 /* No depth checking */
-            /**/ , JSONOptions.specialFloatLiterals );
+            /**/ , JSONOptions.specialFloatLiterals);
             savedYet = true;
             this.absoluteFilePath = filename;
             foreach (ref newRoot; document.array) {
@@ -285,10 +285,10 @@ class Tab {
     // string absoluteFilePath; /// Filename of the file opened in this tab.
     mixin createTrigger!(string, `absoluteFilePath`);
 
-    private uint lastCount     = 0;     /// Used for assigning ids to new nodes.
-    private Node [] rootNodes  = [];    /// Nodes without parent.
-    private bool      savedYet = false; /// False in new files until saved.
-                                        /// true in opened files.
+    private uint    lastCount = 0;     /// Used for assigning ids to new nodes.
+    private Node [] rootNodes = [];    /// Nodes without parent.
+    private bool     savedYet = false; /// False in new files until saved.
+                                       /// true in opened files.
     import espukiide.node : INVALID_NODE;
     private uint m_currentNode = INVALID_NODE;
 

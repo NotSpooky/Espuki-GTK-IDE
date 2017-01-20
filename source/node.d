@@ -17,7 +17,7 @@ class Node {
     uint nodeNumber;
     import espukiide.memberinjector;
     // bool selected;
-    mixin createTrigger!(bool,    `selected`);
+    mixin createTrigger!(bool,    `selected` );
     // string value;
     mixin createTrigger!(string,   `value`   );
     // NodeType type;

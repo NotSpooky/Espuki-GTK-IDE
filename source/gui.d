@@ -90,7 +90,7 @@ static struct GUI {
     import gtk.MainWindow;
     static MainWindow mainWindow = null;
     import espukiide.tab : Tab;
-    static Tab [] tabs    = [];
+    static Tab [] tabs           = [];
 
     /**************************************************************************
      * Tries executing fun with args as arguments.
@@ -161,7 +161,6 @@ static struct GUI {
         }
     }
     
-
     @property static Canvas currentCanvas () {
         return cast (Canvas) notebook.getNthPage (notebook.getCurrentPage);
     }
