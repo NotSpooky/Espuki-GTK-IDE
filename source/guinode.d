@@ -30,7 +30,8 @@ class GUINode {
         } else {
             // Root node.
             import espukiide.gui : GUI;
-            GUI.currentCanvas.rootBox.add (this.verticalBox);
+            import espukiide.tab : Tab;
+            GUI.currentTab.guiTab.rootBox.add (this.verticalBox);
         }
         verticalBox.showAll;
         this.node.valueTriggers    ~= (n=> updateState);

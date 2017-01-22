@@ -72,8 +72,9 @@ static struct GUI {
             notebook = new Notebook ();
             mainBox.add (notebook);
             import espukiide.tab : Tab, defaultFilename;
-            notebook.appendPage (new Canvas (), defaultFilename);
-            tabs ~= new Tab (defaultFilename);
+            //import espukiide.guitab : Canvas;
+            //notebook.appendPage (new Canvas (), defaultFilename);
+            tabs ~= new Tab (notebook, defaultFilename);
         mainWindow.add (mainBox);
 
         // Starts the application.
@@ -91,6 +92,10 @@ static struct GUI {
     static MainWindow mainWindow = null;
     import espukiide.tab : Tab;
     static Tab [] tabs           = [];
+
+    @property static auto ref currentTab () {
+        return tabs [currentTabPos];
+    }
 
     /**************************************************************************
      * Tries executing fun with args as arguments.
@@ -119,23 +124,21 @@ static struct GUI {
         try {
             import espukiide.tab : Tab, defaultFilename;
             static if (newFile) {
-                tabs ~= new Tab (defaultFilename);
+                tabs ~= new Tab (notebook, defaultFilename);
             } else { // Opening a file.
                 string absFilename = GUI.getFilename (false);
                 if (!absFilename) return;
-                tabs ~= new Tab (absFilename);
+                tabs ~= new Tab (notebook, absFilename);
             }
-            auto index = notebook.appendPage (new Canvas ()
-            /**/ , tabs [$-1].absoluteFilePath);
             // GTK limitation, child should be visible.
-            notebook.showAll;
-            notebook.setCurrentPage (index);
             static if (!newFile) {
                     tabs [$-1].openFile (absFilename);
             }
         } catch (Exception ex) {
             assert (tabs.length, `Just inserted a tab, it should exist.`);
             tabs = tabs [0 .. $-1];
+            // Should remove tab from notebook too.
+            pragma (msg, `TO DO: Test failing to open files.`);
             notebook.detachTab (
             /**/ notebook.getNthPage (
             /**  **/ notebook.getCurrentPage
@@ -151,8 +154,7 @@ static struct GUI {
             Main.quit;
         } else {
             import std.algorithm.mutation : remove;
-            auto tabPos = currentTabPos;
-            tabs = tabs.remove (tabPos);
+            tabs = tabs.remove (this.currentTabPos);
             notebook.detachTab (
             /**/ notebook.getNthPage (
             /**  **/ notebook.getCurrentPage
@@ -161,10 +163,6 @@ static struct GUI {
         }
     }
     
-    @property static Canvas currentCanvas () {
-        return cast (Canvas) notebook.getNthPage (notebook.getCurrentPage);
-    }
-
     import gtk.Entry;
     private static void commandEntered (T)(T label) {
         assert (label && label == mainEntry);
@@ -184,9 +182,6 @@ static struct GUI {
         assert (tabs.length > currentPageNum
         /**/ , `Current page cannot exist in tabs`);
         return currentPageNum;
-    }
-    @property private static auto ref currentTab () {
-        return tabs [currentTabPos];
     }
 
     @property static void filename (string newFilename) {
@@ -223,49 +218,5 @@ static struct GUI {
         }
         +/
         return dialogWindow.getFilename;
-    }
-}
-
-import gtk.Layout;
-private class Canvas : Layout {
-    import gtk.Box;
-    Box rootBox = null;
-    this () {
-        import gtk.Adjustment;
-        super (new Adjustment (0,0,1000,1,10,10)
-        /**/ ,new Adjustment (0,0,1000,1,10,10));
-
-        this.setSize (500, 500);
-        this.setSizeRequest (500,500);
-        addOnDraw (&drawn); // Sets the callback.
-        import gtk.Box;
-        rootBox = new Box (Orientation.HORIZONTAL, 30);
-        this.put (rootBox, 0, 0);
-    }
-
-    import cairo.Context;
-    import gtk.Widget;
-    /**************************************************************************
-     * To be used as callback for drawing the background lines.
-     **************************************************************************/
-    private bool drawn (Scoped!Context cr, Widget widget) {
-        import cairo.Surface;
-        cr.setSourceRgb (0.5, 0.6, 0.7);
-        cr.setLineWidth (2);
-        foreach (ref node; GUI.currentTab.nodes) {
-            foreach (ref child; node.children) {
-                auto bottomJoint = node.guiNode.bottomJoint;
-                cr.moveTo (bottomJoint [0], bottomJoint [1]);
-                auto topJoint    = child.guiNode.topJoint;
-                cr.lineTo (topJoint [0], topJoint [1]);
-                cr.stroke;
-            }
-        }
-        /+
-        cr.arc (125, 125, 25, 0, 2*3.14159);
-        cr.rectangle (10, 10, 20, 20);
-        cr.stroke;
-        }+/
-        return false; // Allows the widgets on the Layout to be rendered.
     }
 }

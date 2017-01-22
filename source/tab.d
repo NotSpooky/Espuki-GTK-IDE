@@ -3,9 +3,21 @@ module espukiide.tab;
 enum defaultFilename = `newFile.es`;
 class Tab {
     @disable this ();
-    this (string absoluteFilePath = defaultFilename) {
+    import gtk.Notebook;
+    this (Notebook notebook, string absoluteFilePath = defaultFilename) {
         this.absoluteFilePath = absoluteFilePath;
+        this.guiTab           = new GUITab (this, notebook);
     }
+
+    Node [uint] nodes; /// All nodes, identified by a number.
+    bool modifiedSinceSaved = false; /// If true, should ask when exiting or
+                                     /// compiling.
+    import espukiide.guitab;
+    GUITab guiTab           = null;
+    import espukiide.memberinjector;
+    // string absoluteFilePath; /// Filename of the file opened in this tab.
+    mixin createTrigger!(string, `absoluteFilePath`);
+
     void parseCommand (string command) {
         import pegged.grammar;
         mixin (grammar (
@@ -277,13 +289,6 @@ class Tab {
     @property private void currentNode (Node newVal) {
         this.currentNode = newVal.nodeNumber;
     }
-
-    Node [uint] nodes; /// All nodes, identified by a number.
-    bool modifiedSinceSaved = false; /// If true, should ask when exiting or
-                                     /// compiling.
-    import espukiide.memberinjector;
-    // string absoluteFilePath; /// Filename of the file opened in this tab.
-    mixin createTrigger!(string, `absoluteFilePath`);
 
     private uint    lastCount = 0;     /// Used for assigning ids to new nodes.
     private Node [] rootNodes = [];    /// Nodes without parent.
