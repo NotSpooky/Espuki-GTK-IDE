@@ -3,18 +3,19 @@ module espukiide.node;
 
 class Node {
     @disable this ();
-    this (string value, Tab tab, uint nodeNumber, Node parent, NodeType type) {
-        this.deleted    = false;
-        this.value      = value;
-        this.nodeNumber = nodeNumber;
-        this.type       = type;
-        this.tab        = tab;
-        this.parent     = parent;
-        this.m_guiNode  = new GUINode (this);
+    this (string value, Tab tab, uint nodeNumber, uint parentNodeNumber
+    /**/ , NodeType type) {
+        this.deleted          = false;
+        this.value            = value;
+        this.nodeNumber       = nodeNumber;
+        this.type             = type;
+        this.tab              = tab;
+        this.parentNodeNumber = parentNodeNumber;
+        this.m_guiNode        = new GUINode (this);
     }
-    Node parent;
     NodeType type;
     uint nodeNumber;
+    uint    parentNodeNumber  = -1;
     import espukiide.memberinjector;
     // bool selected;
     mixin createTrigger!(bool,    `selected` );
@@ -29,6 +30,23 @@ class Node {
     import espukiide.tab : Tab;
     Tab tab = null;
 
+    @property auto ref parent () {
+        assert (this.tab, `All nodes should have a tab.`);
+        if (this.parentNodeNumber == INVALID_NODE) {
+            return null;
+        } else {
+            assert (this.parentNodeNumber in this.tab.nodes
+            /**/ , `Parent node not found in nodes.`);
+            return this.tab.nodes [this.parentNodeNumber];
+        }
+    }
+    @property void parent (Node parentNode) {
+        if (parentNode) {
+            this.parentNodeNumber = parentNode.nodeNumber;
+        } else {
+            this.parentNodeNumber = INVALID_NODE;
+        }
+    }
     @property auto ref guiNode () {
         return m_guiNode;
     }
@@ -77,6 +95,7 @@ class Node {
                 this
                 .parent
                 .children
+                .value
                 .remove (pos);
         }
     }

@@ -7,16 +7,21 @@ class Tab {
     this (Notebook notebook, string absoluteFilePath = defaultFilename) {
         this.absoluteFilePath = absoluteFilePath;
         this.guiTab           = new GUITab (this, notebook);
+        this.history          = new History (this);
     }
 
-    Node [uint] nodes; /// All nodes, identified by a number.
     bool modifiedSinceSaved = false; /// If true, should ask when exiting or
                                      /// compiling.
+    import espukiide.history : History;
+    History history         = null;
     import espukiide.guitab;
     GUITab guiTab           = null;
     import espukiide.memberinjector;
+    //Node [uint] nodes; /// All nodes, identified by a number.
+    mixin createTrigger!(Node [uint], `nodes`);
     // string absoluteFilePath; /// Filename of the file opened in this tab.
     mixin createTrigger!(string, `absoluteFilePath`);
+    import espukiide.history;
 
     void parseCommand (string command) {
         import pegged.grammar;
@@ -141,23 +146,37 @@ class Tab {
         this.addNode (null /* No parent */, value, NodeType.Declaration);
     }
 
+    enum GET_NEW = -1;
     import espukiide.node : NodeType, Node;
     /// All new nodes should be created with this.
-    private auto ref addNode (Node parent, string label, NodeType type) {
+    auto ref addNode (uint parentNodeNumber, string label, NodeType type
+    /**/ , int nodeNumber = GET_NEW) {
+        assert (parentNodeNumber in nodes || parentNodeNumber == INVALID_NODE
+        /**/ , `Non existent parent.`);
+        auto parent = parentNodeNumber in nodes ?
+        /**/ nodes [parentNodeNumber] : null;
+        return this.addNode (parent, label, type, nodeNumber);
+    }
+    auto ref addNode (Node parent, string label, NodeType type
+    /**/ , int nodeNumber = GET_NEW) {
         Node insertedNode = null;
         import espukiide.node : Node;
+        if (nodeNumber == GET_NEW) {
+            nodeNumber = lastCount;
+            lastCount ++;
+        }
         if (parent) {
-            parent.children ~= new Node (label, this, lastCount, parent, type);
+            parent.children ~= new Node (label, this, nodeNumber
+            /**/ , parent.nodeNumber, type);
             insertedNode = parent.children [$-1];
         } else { // Root node.
             assert (type == NodeType.Declaration
             /**/ , `Root nodes should be function declarations.`);
-            rootNodes ~= new Node (label, this, lastCount, parent, type);
+            rootNodes ~= new Node (label, this, nodeNumber, INVALID_NODE, type);
             insertedNode = rootNodes [$-1];
         }
-        nodes [lastCount] = insertedNode;
-        currentNode = lastCount;
-        lastCount ++;
+        nodes [nodeNumber] = insertedNode;
+        currentNode = nodeNumber;
         return insertedNode;
     }
 
@@ -291,7 +310,8 @@ class Tab {
     }
 
     private uint    lastCount = 0;     /// Used for assigning ids to new nodes.
-    private Node [] rootNodes = [];    /// Nodes without parent.
+    import espukiide.memberinjector;
+    private Node [] rootNodes = [];  /// Nodes without parent.
     private bool     savedYet = false; /// False in new files until saved.
                                        /// true in opened files.
     import espukiide.node : INVALID_NODE;

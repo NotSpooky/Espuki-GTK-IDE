@@ -29,35 +29,45 @@ static struct GUI {
             import gtk.MenuBar;
             auto mainMenu = new MenuBar ();
                 auto fileMenu = mainMenu.append ("_File");
-                import gtk.MenuItem;
-                import gdk.Keysyms : GdkKeysyms;
-                MenuItem newMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.openFile!true))
-                /**/ , `_New`, ``, true, accelGroup, GdkKeysyms.GDK_N);
-                fileMenu.append (newMenuIt);
-                MenuItem openMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.openFile!false))
-                /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
-                fileMenu.append (openMenuIt);
-                MenuItem saveMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.saveCurrentFile)(false))
-                /**/ , `_Save`, ``, true, accelGroup, GdkKeysyms.GDK_S);
-                fileMenu.append (saveMenuIt);
-                import gtkc.gdktypes : GdkModifierType;
-                MenuItem saveAsMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.saveCurrentFile)(true))
-                /**/ , `S_ave as`, ``, true, accelGroup, GdkKeysyms.GDK_S
-                /**/ , GdkModifierType.CONTROL_MASK
-                /**/ | GdkModifierType.SHIFT_MASK);
-                fileMenu.append (saveAsMenuIt);
-                MenuItem closeMenuIt = new MenuItem (
-                /**/ (n=>tryFun!(GUI.closeCurrentFile))
-                /**/ , `_Close file`, ``, true, accelGroup, GdkKeysyms.GDK_W);
-                fileMenu.append (closeMenuIt);
-                import gtk.Main;
-                MenuItem quitMenuIt = new MenuItem ((n=>Main.quit)
-                /**/ , `_Quit`, ``, true, accelGroup, GdkKeysyms.GDK_Q);
-                fileMenu.append (quitMenuIt);
+                    import gtk.MenuItem;
+                    import gdk.Keysyms : GdkKeysyms;
+                    MenuItem newMenuIt = new MenuItem (
+                    /**/ (n=>tryFun!(GUI.openFile!true))
+                    /**/ , `_New`, ``, true, accelGroup, GdkKeysyms.GDK_N);
+                    fileMenu.append (newMenuIt);
+                    MenuItem openMenuIt = new MenuItem (
+                    /**/ (n=>tryFun!(GUI.openFile!false))
+                    /**/ , `_Open`, ``, true, accelGroup, GdkKeysyms.GDK_O);
+                    fileMenu.append (openMenuIt);
+                    MenuItem saveMenuIt = new MenuItem (
+                    /**/ (n=>tryFun!(GUI.saveCurrentFile)(false))
+                    /**/ , `_Save`, ``, true, accelGroup, GdkKeysyms.GDK_S);
+                    fileMenu.append (saveMenuIt);
+                    import gtkc.gdktypes : GdkModifierType;
+                    MenuItem saveAsMenuIt = new MenuItem (
+                    /**/ (n=>tryFun!(GUI.saveCurrentFile)(true))
+                    /**/ , `Save _as`, ``, true, accelGroup, GdkKeysyms.GDK_S
+                    /**/ , GdkModifierType.CONTROL_MASK
+                    /**/ | GdkModifierType.SHIFT_MASK);
+                    fileMenu.append (saveAsMenuIt);
+                    MenuItem closeMenuIt = new MenuItem (
+                    /**/ (n=>tryFun!(GUI.closeCurrentFile))
+                    /**/ , `_Close file`, ``, true, accelGroup,
+                    /**/ GdkKeysyms.GDK_W);
+                    fileMenu.append (closeMenuIt);
+                    import gtk.Main;
+                    MenuItem quitMenuIt = new MenuItem ((n=>Main.quit)
+                    /**/ , `_Quit`, ``, true, accelGroup, GdkKeysyms.GDK_Q);
+                    fileMenu.append (quitMenuIt);
+                auto editMenu = mainMenu.append ("_Edit");
+                    MenuItem undoIt = new MenuItem (
+                    /**/ (n=>this.currentTab.history.undo)
+                    /**/ , `_Undo`, ``, true, accelGroup, GdkKeysyms.GDK_Z);
+                    editMenu.append (undoIt);
+                    MenuItem redoIt = new MenuItem (
+                    /**/ (n => this.currentTab.history.redo)
+                    /**/ , `_Redo`, ``, true, accelGroup, GdkKeysyms.GDK_Y);
+                    editMenu.append (redoIt);
 
             mainBox.add (mainMenu);
             import gtk.Entry;
