@@ -34,10 +34,13 @@ class GUINode {
             GUI.currentTab.guiTab.rootBox.add (this.verticalBox);
         }
         verticalBox.showAll;
-        this.node.valueTriggers    ~= (n=> updateState);
-        this.node.typeTriggers     ~= (n=> updateState);
-        this.node.selectedTriggers ~= (n=> updateState);
-        this.node.deletedTriggers  ~= (n=> GUIDestructor (n));
+        this.node.value.assignTriggers    ~= (n=> updateState);
+        pragma (msg, `TO DO: Fix the alias this in memberinjector issue.`);
+        // For some weird reason m_type needs to be used instead of type.
+        // Probably has something to do with the alias this.
+        this.node.m_type.assignTriggers   ~= (n=> updateState);
+        this.node.selected.assignTriggers ~= (n=> updateState);
+        this.node.deleted.assignTriggers  ~= (n=> GUIDestructor (n));
         this.updateState;
     }
 

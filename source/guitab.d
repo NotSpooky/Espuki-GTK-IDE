@@ -9,7 +9,7 @@ class GUITab {
         notebook.appendPage (this.canvas, this.tab.absoluteFilePath);
         notebook.showAll;
         notebook.setCurrentPage (this.canvas);
-        this.tab.absoluteFilePathTriggers ~= 
+        this.tab.absoluteFilePath.assignTriggers ~= 
         /**/ (filename => notebook.setTabLabelText (this.canvas, filename));
     }
     import espukiide.tab : Tab;
