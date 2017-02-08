@@ -21,6 +21,8 @@ class History {
                 futureTimeline = [];
             }
         }
+        newNode.value.beforeAssignment
+        /**/ ~= oldValue => onValueChanged (newNode.nodeNumber, oldValue);
     }
 
     void onNodeDeleted (Node deletedNode, uint index) {
@@ -28,6 +30,10 @@ class History {
         if (this.deleteFutureOnChanges) {
             futureTimeline = [];
         }
+    }
+
+    void onValueChanged (uint nodeNumber, string oldValue) {
+        pastTimeline ~= [ new NodeValueChangedAction (nodeNumber, oldValue) ];
     }
 
     void redo () {
@@ -66,17 +72,10 @@ class History {
 
 pragma (msg, `Espuki meta: `
 /**/ ~ `Allow triggers when functions/delegates are called.`);
-/+
-enum ActionType {
-    addNode,     // Reverting should delete the inserted node.
-    deleteNode,  // Reverting should reinsert the node.
-    valueChanged // 
-}; +/
 
 interface Action {
     import espukiide.tab : Tab;
     void revert (ref Tab tab);
-    Action opposite ();
 }
 
 class NodeAddedAction : Action {
@@ -88,10 +87,6 @@ class NodeAddedAction : Action {
         tab.deleteNode (node.nodeNumber);
     }
 
-    Action opposite () {
-        return new NodeDeletedAction (this.node);
-    }
-
     private Node node;
 }
 
@@ -101,12 +96,22 @@ class NodeDeletedAction : Action {
         this.node = node;
     }
     void revert (ref Tab tab) {
-        tab.addNode (node.parentNodeNumber, node.value, node.type, node.nodeNumber);
-    }
-
-    Action opposite () {
-        return new NodeAddedAction (this.node);
+        tab.addNode (node.parentNodeNumber, node.value, node.type
+        /**/ , node.nodeNumber);
     }
 
     private Node node;
+}
+
+class NodeValueChangedAction : Action {
+    this (uint nodeNumber, string oldValue) {
+        this.nodeNumber = nodeNumber;
+        this.oldValue   = oldValue;
+    }
+    void revert (ref Tab tab) {
+        tab.nodes [nodeNumber].value = oldValue;
+    }
+
+    private uint nodeNumber;
+    private string oldValue;
 }

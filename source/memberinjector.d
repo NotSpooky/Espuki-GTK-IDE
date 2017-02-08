@@ -22,6 +22,9 @@ mixin template createTrigger (Type, string name) {
     }`);
     // Setter.
     mixin (`@property void ` ~ name ~ `(Type rhs) {
+        foreach (ref trigger; m_` ~ name ~ `.beforeAssignment) {
+            trigger (m_` ~ name ~`);
+        }
         m_` ~ name ~ ` = rhs;
         foreach (ref trigger; m_` ~ name ~ `.assignTriggers) {
             trigger (m_` ~ name ~`);
@@ -61,6 +64,8 @@ struct VariableWithTrigger (Type) {
     alias value this;
     /// Array of triggers that are called whenever `variable = rhs` is used.
     void delegate (Type) [] assignTriggers;
+    /// Same as above but called before the assignment is done.
+    void delegate (Type) [] beforeAssignment;
     /+ Doesn't work. Assignment implemented in createTrigger.
     void opAssign (T)(T rhs) {
         this.value = rhs;
