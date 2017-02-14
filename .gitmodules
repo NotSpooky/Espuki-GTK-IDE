@@ -1,0 +1,3 @@
+[submodule "source/NemoUtils"]
+	path = source/NemoUtils
+	url = https://github.com/NotSpooky/NemoUtils

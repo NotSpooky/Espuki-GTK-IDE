@@ -16,7 +16,7 @@ class Tab {
     History history         = null;
     import espukiide.guitab;
     GUITab guiTab           = null;
-    import espukiide.memberinjector;
+    import nemoutils.memberinjector;
     //Node [uint] nodes; /// All nodes, identified by a number.
     mixin createTrigger!(Node [uint], `nodes`);
     // string absoluteFilePath; /// Filename of the file opened in this tab.
@@ -310,8 +310,8 @@ class Tab {
     }
 
     private uint    lastCount = 0;     /// Used for assigning ids to new nodes.
-    import espukiide.memberinjector;
-    private Node [] rootNodes = [];  /// Nodes without parent.
+    import nemoutils.memberinjector;
+    private Node [] rootNodes = [];    /// Nodes without parent.
     private bool     savedYet = false; /// False in new files until saved.
                                        /// true in opened files.
     import espukiide.node : INVALID_NODE;

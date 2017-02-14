@@ -16,7 +16,7 @@ class Node {
     NodeType type;
     uint nodeNumber;
     uint    parentNodeNumber  = -1;
-    import espukiide.memberinjector;
+    import nemoutils.memberinjector;
     // bool selected;
     mixin createTrigger!(bool,    `selected` );
     // string value;
