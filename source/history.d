@@ -6,8 +6,8 @@ class History {
     this (Tab tab) {
         this.tab = tab;
         import std.stdio;
-        this.tab.nodes.indexAssignTriggers ~= &onNodeCreated;
-        this.tab.nodes.removeTriggers      ~= &onNodeDeleted;
+        this.tab.nodes.onIndexAssign  ~= &onNodeCreated;
+        this.tab.nodes.onRemovedEntry ~= &onNodeDeleted;
     }
     Tab tab;
 
@@ -21,7 +21,7 @@ class History {
                 futureTimeline = [];
             }
         }
-        newNode.value.beforeAssignment
+        newNode.value.beforeAssign
         /**/ ~= oldValue => onValueChanged (newNode.nodeNumber, oldValue);
     }
 
