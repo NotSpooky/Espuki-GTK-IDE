@@ -13,20 +13,15 @@ class Node {
         this.parentNodeNumber = parentNodeNumber;
         this.m_guiNode        = new GUINode (this);
     }
-    NodeType type;
     uint nodeNumber;
     uint    parentNodeNumber  = -1;
     import nemoutils.memberinjector;
-    // bool selected;
-    mixin createTrigger!(bool,    `selected` );
-    // string value;
-    mixin createTrigger!(string,   `value`   );
-    // NodeType type;
-    mixin createTrigger!(NodeType, `type`    );
-    // Node [] children;
-    mixin createTrigger!(Node [],  `children`);
-    // bool deleted; /// Whether this node should be deleted already.
-    mixin createTrigger!(bool,     `deleted` );
+    Triggered!bool      selected;
+    Triggered!string    value;
+    Triggered!NodeType  type;
+    Triggered!(Node []) children;
+    /// Whether this node should be deleted already.
+    Triggered!bool      deleted;
     import espukiide.tab : Tab;
     Tab tab = null;
 

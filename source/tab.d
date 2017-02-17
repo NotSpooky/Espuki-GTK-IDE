@@ -18,9 +18,9 @@ class Tab {
     GUITab guiTab           = null;
     import nemoutils.memberinjector;
     //Node [uint] nodes; /// All nodes, identified by a number.
-    mixin createTrigger!(Node [uint], `nodes`);
+    Triggered!(Node [uint]) nodes;
     // string absoluteFilePath; /// Filename of the file opened in this tab.
-    mixin createTrigger!(string, `absoluteFilePath`);
+    Triggered!string absoluteFilePath;
     import espukiide.history;
 
     void parseCommand (string command) {
