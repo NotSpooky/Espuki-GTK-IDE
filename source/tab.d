@@ -9,18 +9,16 @@ class Tab {
         this.guiTab           = new GUITab (this, notebook);
         this.history          = new History (this);
     }
-
-    bool modifiedSinceSaved = false; /// If true, should ask when exiting or
-                                     /// compiling.
+    /// If true, should ask when exiting or compiling.
+    bool modifiedSinceSaved = false; 
     import espukiide.history : History;
     History history         = null;
     import espukiide.guitab;
     GUITab guiTab           = null;
     import nemoutils.memberinjector;
-    //Node [uint] nodes; /// All nodes, identified by a number.
-    Triggered!(Node [uint]) nodes;
-    // string absoluteFilePath; /// Filename of the file opened in this tab.
-    Triggered!string absoluteFilePath;
+    Triggered!(Node [uint]) nodes; /// All nodes, identified by a number.
+    /// Filename of the file opened in this tab.
+    Triggered!string absoluteFilePath; 
     import espukiide.history;
 
     void parseCommand (string command) {
@@ -227,7 +225,7 @@ class Tab {
             .map!(n=>n.toJSON)
             .joiner(`, `)
             .to!string
-             ~ `]`
+             ~ "\n]"
         );
     }
 
@@ -255,6 +253,17 @@ class Tab {
         }
         catch (JSONException e) {
             throw new JSONException (`Error reading file: ` ~ e.msg);
+        }
+    }
+
+    auto compile () {
+        if (rootNodes.length) {
+            import std.algorithm  : map;
+            import espukiide.node : compile;
+            import std.range      : array;
+            return rootNodes.map!compile.array;
+        } else {
+            throw new Exception (`Nothing to compile.`);
         }
     }
 

@@ -3,6 +3,9 @@ module espukiide.node;
 
 class Node {
     @disable this ();
+    /**
+     * parentNodeNumber should be INVALID_NODE if non-existent.
+     */
     this (string value, Tab tab, uint nodeNumber, uint parentNodeNumber
     /**/ , NodeType type) {
         this.deleted          = false;
@@ -14,7 +17,7 @@ class Node {
         this.m_guiNode        = new GUINode (this);
     }
     uint nodeNumber;
-    uint    parentNodeNumber  = -1;
+    uint parentNodeNumber  = -1;
     import nemoutils.memberinjector;
     Triggered!bool      selected;
     Triggered!string    value;
@@ -25,6 +28,9 @@ class Node {
     import espukiide.tab : Tab;
     Tab tab = null;
 
+    /**
+     * Returns the parent from tab.nodes.
+     */
     @property auto ref parent () {
         assert (this.tab, `All nodes should have a tab.`);
         if (this.parentNodeNumber == INVALID_NODE) {
@@ -35,6 +41,9 @@ class Node {
             return this.tab.nodes [this.parentNodeNumber];
         }
     }
+    /**
+     * Makes a Node parent of this one.
+     */
     @property void parent (Node parentNode) {
         if (parentNode) {
             this.parentNodeNumber = parentNode.nodeNumber;
@@ -42,30 +51,32 @@ class Node {
             this.parentNodeNumber = INVALID_NODE;
         }
     }
-    @property auto ref guiNode () {
-        return m_guiNode;
-    }
-    string toJSON () {
+    /// Doesn't allow assignment.
+    @property auto guiNode () { return m_guiNode; }
+    string toJSON (uint indentationLevel = 0) {
         import espukiide.stringhandler : escape;
         import std.algorithm.iteration : map, joiner;
-        import std.conv : to;
-        pragma (msg, `TO DO: Change toJSON so that it uses std.json and `
-        /**/ ~ `escapes characters correctly.`);
-        return
-            `{
-                "type" : "` ~ this.type.to!string ~ `",
-                "value" : "` ~ this.value.escape ~ `" `
-                 ~ (this.children.length ? `
+        import std.conv                : to;
+        import std.range               : repeat, take;
+        pragma (msg, `TO DO: Make toJSON escape characters correctly.`);
+        /// Indent relative to indentationL.
+        string indentation (uint extra = 0) {
+            return "\n" ~ repeat ('\t').take (indentationLevel + extra).to!string;
+        }
+        return indentation (1) ~ `{`
+            ~ indentation (1) ~ `"type" : "` ~ this.type.to!string ~ `",`
+            ~ indentation (1) ~ `"value" : "` ~ this.value.escape ~ `" `
+            ~ indentation (2) ~(this.children.length ? `
                     , "children" : [` ~
                         this
                             .children
-                            .map! (n=>n.toJSON)
+                            .map! (n=>n.toJSON (indentationLevel + 3))
                             .joiner (`, `)
                             .to!string
                     ~ `] ` 
                     : `` // No children, no need for children attribute.
-                    ) ~ `
-            }`;
+                    )
+            ~ indentation (1) ~ `}`;
     }
     // A 'destructor'. Should be called before deleting this node.
     void controllerDestructor () {
@@ -95,8 +106,71 @@ class Node {
         }
     }
     import espukiide.guinode : GUINode;
-    private GUINode m_guiNode               = null;
+    private GUINode m_guiNode = null; // Node in the GUI.
 }
 
-enum NodeType { Declaration, Expression }
+enum NodeType { Declaration, Expression, Return }
 enum INVALID_NODE = -1; /// Used to test whether a node has been set.
+
+/**
+ * root is the name of the variable starting the chain, null if it doesn't exist.
+ */
+auto processChain (Node [] nodes, string root) {
+    // Suppose there's a chain root -> b -> c -> {d, e -> f}
+    // If the last node is a return, it shouldn't have children and the compiled
+    // expression will be `return root.b.c` (assume c didn't have children).
+    // If the last node isn't a return and doesn't have children, the expression
+    // will be `root.b.c` , NOTE: If there's no exception/mutable state change
+    // then this is dead code. (assume c didn't have children).
+    // If the last node has children they must be more than 1 (else they would
+    // be chained), and a variable should be created to store the intermediate
+    // result. NOTE: If any of the children mutates state then the tree must
+    // have a defined order for the execution of the children.
+    assert (nodes.length);
+    import std.algorithm : map;
+    import std.range     : join;
+    /* Shouldn't add '.' if no root */
+    string theChain = (root ? (root ~ ".") : ``) 
+    /**/ ~ nodes
+    /**/    .map!`a.value`
+    /**/    .join (`.`) 
+    /**/ ~ ";\n";
+    auto lastNode = nodes [$-1];
+    if (lastNode.type == NodeType.Return) {
+        assert (lastNode.children.length == 0
+        /**/ , `Return nodes should have no children`);
+        return `return ` ~ theChain;
+    } else if (lastNode.children.length) {
+        import std.conv : to;
+        string variableName = `espukiVar` ~ lastVariableNumber.to!string;
+        lastVariableNumber ++;
+        return 
+            // Variable names shouldn't be used for function declarations.
+            variableName ~ ` = ` ~ theChain 
+            ~ lastNode
+            .children
+            .map!compile
+            .join;
+    } else {
+        return theChain;
+    }
+}
+private static lastVariableNumber = 0;
+
+/+
+auto iterateTree (ref Node node) {
+    if (node.children.length == 1) {
+        // This node should be chained with its child.
+        chain (node.children [0].iterateTree ~ node);
+    }
+}+/
+
+string compile (Node node) {
+    Node [] chain = [node];
+    Node currentNode = node;
+    while (node.children.length == 1) {
+        node = node.children [0];
+        chain ~= node;
+    }
+    return processChain (chain, null);
+}

@@ -68,6 +68,13 @@ static struct GUI {
                     /**/ (n => this.currentTab.history.redo)
                     /**/ , `_Redo`, ``, true, accelGroup, GdkKeysyms.GDK_Y);
                     editMenu.append (redoIt);
+                auto compileMenu = mainMenu.append ("_Compile");
+                    import std.stdio : writeln;
+                    MenuItem compileIt = new MenuItem (
+                    /**/ (n => writeln(this.currentTab.compile))
+                    /**/ , `_Compile`, ``, true, accelGroup, GdkKeysyms.GDK_F);
+                    compileMenu.append (compileIt);
+
 
             mainBox.add (mainMenu);
             import gtk.Entry;

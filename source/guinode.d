@@ -100,7 +100,7 @@ mixin template NodeLabel () {
         this.m_label.setSelectable (true); // Allows copying their text.
     }
 
-    enum declarationColor = `#00657F`;
+    enum Color {declaration = `#00657F`, ret /*return*/ = `#334455`};
     /***************************************************************************
      * Updates the text output.
      * Should be called whenever there's some change to it.
@@ -114,8 +114,11 @@ mixin template NodeLabel () {
             import espukiide.node : NodeType;
             case NodeType.Expression: // Use default.
                 break;
+            case NodeType.Return:
+                markup ~= `color='` ~ Color.ret ~ `'`;
+                break;
             case NodeType.Declaration:
-                markup ~= `size='x-large' color='` ~ declarationColor ~ `'`;
+                markup ~= `size='x-large' color='` ~ Color.declaration ~ `'`;
                 break;
         }
         import glib.SimpleXML;
