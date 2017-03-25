@@ -149,7 +149,7 @@ auto processChain (Node [] nodes, string root) {
             variableName ~ ` = ` ~ theChain 
             ~ lastNode
             .children
-            .map!compile
+            .map!(child => child.chain.processChain (variableName))
             .join;
     } else {
         return theChain;
@@ -157,20 +157,15 @@ auto processChain (Node [] nodes, string root) {
 }
 private static lastVariableNumber = 0;
 
-/+
-auto iterateTree (ref Node node) {
-    if (node.children.length == 1) {
-        // This node should be chained with its child.
-        chain (node.children [0].iterateTree ~ node);
-    }
-}+/
-
-string compile (Node node) {
-    Node [] chain = [node];
+private Node [] chain (Node node) {
+    Node [] toRet = [node];
     Node currentNode = node;
     while (node.children.length == 1) {
         node = node.children [0];
-        chain ~= node;
+        toRet ~= node;
     }
-    return processChain (chain, null);
+    return toRet;
+}
+string compile (Node node) {
+    return processChain (node.chain, null);
 }

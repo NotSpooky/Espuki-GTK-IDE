@@ -260,8 +260,7 @@ class Tab {
         if (rootNodes.length) {
             import std.algorithm  : map;
             import espukiide.node : compile;
-            import std.range      : array;
-            return rootNodes.map!compile.array;
+            return rootNodes.map!compile;
         } else {
             throw new Exception (`Nothing to compile.`);
         }
